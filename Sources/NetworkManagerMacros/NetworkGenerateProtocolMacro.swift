@@ -350,17 +350,17 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
     }
     
     private static func isQuery(_ typeString: String) -> Bool {
-        let pattern = #"^Query<[^,<>]+>$"#
+        let pattern = #"(?:^|\.)Query<[^,<>]+>$"#
         return typeString.range(of: pattern, options: .regularExpression) != nil
     }
     
     private static func isPath(_ typeString: String) -> Bool {
-        let pattern = #"^Path<[^,<>]+>$"#
+        let pattern = #"(?:^|\.)Path<[^,<>]+>$"#
         return typeString.range(of: pattern, options: .regularExpression) != nil
     }
     
     private static func isHeader(_ typeString: String) -> Bool {
-        let pattern = #"^Header$"#
+        let pattern = #"(?:^|\.)Header$"#
         return typeString.range(of: pattern, options: .regularExpression) != nil
     }
     
