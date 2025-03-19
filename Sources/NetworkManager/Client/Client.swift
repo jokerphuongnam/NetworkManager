@@ -1,0 +1,24 @@
+import Foundation
+
+public protocol Client {
+    func sendRequest(
+        url: URL,
+        method: String,
+        headers: [String: String],
+        cookie: HTTPCookie?,
+        interceptors: [NMInterceptor],
+        body: Data?,
+        completion: @escaping (Result<Response<Data>, Error>) -> Void
+    ) -> Request
+}
+
+
+public func mimeType(for url: URL) -> String {
+    switch url.pathExtension.lowercased() {
+    case "jpg", "jpeg": return "image/jpeg"
+    case "png": return "image/png"
+    case "gif": return "image/gif"
+    case "pdf": return "application/pdf"
+    default: return "application/octet-stream"
+    }
+}
