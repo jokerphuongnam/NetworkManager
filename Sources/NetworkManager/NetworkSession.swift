@@ -46,21 +46,19 @@ public struct NetworkSession: Sendable {
                 interceptors: self.interceptors + interceptors,
                 body: try converterFactory.requestBodyConverter(body: body)
             ) { result in
-                DispatchQueue.global(qos: .utility).async {
-                    switch result {
-                    case .success(let response):
-                        do {
-                            call.onResponse?(
-                                try response.map { data in
-                                    try converterFactory.responseConverter(data: data)
-                                }
-                            )
-                        } catch {
-                            call.onFailure?(error)
-                        }
-                    case .failure(let error):
+                switch result {
+                case .success(let response):
+                    do {
+                        call.onResponse?(
+                            try response.map { data in
+                                try converterFactory.responseConverter(data: data)
+                            }
+                        )
+                    } catch {
                         call.onFailure?(error)
                     }
+                case .failure(let error):
+                    call.onFailure?(error)
                 }
             }
         } catch {
@@ -90,21 +88,19 @@ public struct NetworkSession: Sendable {
             interceptors: self.interceptors + interceptors,
             body: nil
         ) { result in
-            DispatchQueue.global(qos: .utility).async {
-                switch result {
-                case .success(let response):
-                    do {
-                        call.onResponse?(
-                            try response.map { data in
-                                try converterFactory.responseConverter(data: data)
-                            }
-                        )
-                    } catch {
-                        call.onFailure?(error)
-                    }
-                case .failure(let error):
+            switch result {
+            case .success(let response):
+                do {
+                    call.onResponse?(
+                        try response.map { data in
+                            try converterFactory.responseConverter(data: data)
+                        }
+                    )
+                } catch {
                     call.onFailure?(error)
                 }
+            case .failure(let error):
+                call.onFailure?(error)
             }
         }
         return call
