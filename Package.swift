@@ -12,9 +12,9 @@ let package = Package(
             name: "NetworkManager",
             targets: ["NetworkManager"]
         ),
-        .executable(
-            name: "NetworkManagerClient",
-            targets: ["NetworkManagerClient"]
+        .library(
+            name: "AlamofileClient",
+            targets: ["AlamofileClient"]
         ),
     ],
     dependencies: [
