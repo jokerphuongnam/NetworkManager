@@ -129,7 +129,7 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
             returnTypeString = ""
         }
         let pathAfterReplacePath = try replacePathPlaceholders(of: node, in: context, path: attributes.memberPath, paths: paths)
-        let pathWithQuery = appendQueriesToPath(path: String(pathAfterReplacePath.dropLast()), queries: queries) + "\""
+        let pathWithQuery = if queries.isEmpty { pathAfterReplacePath } else { appendQueriesToPath(path: String(pathAfterReplacePath.dropLast()), queries: queries) + "\"" }
         
         var appendHeaders = [String]()
         for header in headers {
