@@ -35,8 +35,7 @@ public struct NetworkSession: Sendable {
             requestCookie = nil
         }
         
-        var call: Call<Response<ResponseBody>> = .init()
-        
+        let call: Call<Response<ResponseBody>> = .init()
         
         do {
             call.request = client.sendRequest(
@@ -81,7 +80,7 @@ public struct NetworkSession: Sendable {
             requestCookie = nil
         }
         
-        var call: Call<Response<ResponseBody>> = .init()
+        let call: Call<Response<ResponseBody>> = .init()
         
         call.request = client.sendRequest(
             url: requestUrl,
