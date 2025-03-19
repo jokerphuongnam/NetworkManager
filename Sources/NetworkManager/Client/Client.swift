@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol Client {
+public protocol Client: Sendable {
     func sendRequest(
         url: URL,
         method: String,

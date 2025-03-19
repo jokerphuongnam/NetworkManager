@@ -52,7 +52,7 @@ struct DataEncoding: ParameterEncoding {
     }
 }
 
-struct CookieInterceptorChain: @unchecked Sendable, RequestInterceptor {
+struct CookieInterceptorChain: RequestInterceptor {
     let interceptors: [NMInterceptor]
     let cookie: HTTPCookie?
     

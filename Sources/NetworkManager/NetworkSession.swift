@@ -1,6 +1,6 @@
 import Foundation
 
-public struct NetworkSession: @unchecked Sendable{
+public struct NetworkSession: Sendable {
     private let baseUrl: URL
     private let client: Client
     public let converterFactory: ConverterFactory
