@@ -8,7 +8,7 @@ public protocol Client: Sendable {
         cookie: HTTPCookie?,
         interceptors: [NMInterceptor],
         body: Data?,
-        completion: @escaping (Result<Response<Data>, Error>) -> Void
+        completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void
     ) -> Request
 }
 

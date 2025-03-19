@@ -8,7 +8,7 @@ public struct URLSessionClient: Client {
         self.urlSession = urlSession
     }
     
-    public func sendRequest(url: URL, method: String, headers: [String: String], cookie: HTTPCookie?, interceptors: [NMInterceptor], body: Data?, completion: @escaping (Result<Response<Data>, Error>) -> Void) -> Request {
+    public func sendRequest(url: URL, method: String, headers: [String: String], cookie: HTTPCookie?, interceptors: [NMInterceptor], body: Data?, completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void) -> Request {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = method
         urlRequest.allHTTPHeaderFields = (urlSession.configuration.httpAdditionalHeaders as? [String: String] ?? [:]).merging(headers) { _, new in new }

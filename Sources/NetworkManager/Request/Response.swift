@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Response<T> {
+public struct Response<T>: Sendable where T: Sendable {
     public let data: T
     public let statusCode: Int
     public let headers: [String: String]

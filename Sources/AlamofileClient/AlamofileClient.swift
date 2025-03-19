@@ -6,13 +6,13 @@ import NetworkManager
 
 public struct AlamofileClient: Client {
     private let session: Session
-    nonisolated(unsafe) public static let shared: AlamofileClient = .init(session: AF)
+    public static let shared: AlamofileClient = .init(session: AF)
     
     init(session: Session) {
         self.session = session
     }
     
-    public func sendRequest(url: URL, method: String, headers: [String: String], cookie: HTTPCookie?, interceptors: [NMInterceptor], body: Data?, completion: @escaping (Result<Response<Data>, Error>) -> Void) -> NetworkManager.Request {
+    public func sendRequest(url: URL, method: String, headers: [String: String], cookie: HTTPCookie?, interceptors: [NMInterceptor], body: Data?, completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void) -> NetworkManager.Request {
         let request = session.request(
             url,
             method: HTTPMethod(rawValue: method),
