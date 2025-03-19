@@ -19,7 +19,6 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0-latest"),
-        .package(url: "https://github.com/Alamofire/Alamofire.git", from: "5.7.0"),
     ],
     targets: [
         .macro(
@@ -33,7 +32,7 @@ let package = Package(
             name: "AlamofileClient",
             dependencies: [
                 "NetworkManager",
-                .product(name: "Alamofire", package: "Alamofire")
+                "Alamofire"
             ]
         ),
         .target(name: "NetworkManager", dependencies: ["NetworkManagerMacros"]),
@@ -41,7 +40,6 @@ let package = Package(
             name: "NetworkManagerClient",
             dependencies: [
                 "NetworkManager",
-                "AlamofileClient"
             ]
         ),
         .testTarget(

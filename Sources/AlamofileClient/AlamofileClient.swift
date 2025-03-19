@@ -1,6 +1,5 @@
-//#if canImport(Alamofile)
+#if canImport(Alamofile)
 import Alamofire
-//#endif
 import Foundation
 import NetworkManager
 
@@ -40,51 +39,4 @@ public struct AlamofileClient: Client {
         )
     }
 }
-
-
-struct DataEncoding: ParameterEncoding {
-    let data: Data?
-    
-    func encode(_ urlRequest: URLRequestConvertible, with parameters: Parameters?) throws -> URLRequest {
-        var request = try urlRequest.asURLRequest()
-        request.httpBody = data
-        return request
-    }
-}
-
-struct CookieInterceptorChain: RequestInterceptor {
-    let interceptors: [NMInterceptor]
-    let cookie: HTTPCookie?
-    
-    init(interceptors: [NMInterceptor], cookie: HTTPCookie?) {
-        self.interceptors = interceptors
-        self.cookie = cookie
-    }
-    
-    func adapt(_ urlRequest: URLRequest, for session: Session, completion: @escaping (Result<URLRequest, any Error>) -> Void) {
-        var currentRequest = urlRequest
-        if let cookie {
-            currentRequest.applyCookie(cookie)
-        }
-        NMInterceptorChain(interceptors: interceptors)
-            .proceed(request: urlRequest) { result in
-                completion(result)
-            }
-    }
-}
-
-struct AlamofireRequest: NetworkManager.Request {
-    private let request: DataRequest
-    
-    init(request: DataRequest) {
-        self.request = request
-    }
-    
-    func resume() {
-        request.resume()
-    }
-    
-    func cancel() {
-        request.cancel()
-    }
-}
+#endif
