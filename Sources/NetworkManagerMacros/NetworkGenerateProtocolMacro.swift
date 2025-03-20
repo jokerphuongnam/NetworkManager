@@ -303,7 +303,7 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
     }
     
     private static func extractInnerType(from input: String) -> String? {
-        let pattern = #"(?<=<)(.*?)(?=[,>])"#
+        let pattern = #"(?<=<)([^<>]+(?:<[^<>]+>)?)(?=[,>])"#
         if let range = input.range(of: pattern, options: .regularExpression) {
             return String(input[range])
         }

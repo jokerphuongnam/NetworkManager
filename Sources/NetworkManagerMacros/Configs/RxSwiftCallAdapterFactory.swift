@@ -7,7 +7,7 @@ struct RxSwiftCallAdapterFactory: CallApdaterFactory {
     private init() {}
     
     public func isApply(returnsType: String) -> Bool {
-        let pattern = #"(^|\.)(Single<[^,<>]+>)$"#
+        let pattern = #"(^|\.)(Single<([^<>]+|<[^<>]+>)*>)$"#
         return returnsType.range(of: pattern, options: .regularExpression) != nil
     }
     

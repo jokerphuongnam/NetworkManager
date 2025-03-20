@@ -7,7 +7,7 @@ struct CombineCallAdapterFactory: CallApdaterFactory {
     private init() {}
     
     public func isApply(returnsType: String) -> Bool {
-        let pattern = #"(^|\.)(Future<[^,<>]+, Error>)$"#
+        let pattern = #"(^|\.)(Future<([^<>]+|<[^<>]+>)*, Error>)$"#
         return returnsType.range(of: pattern, options: .regularExpression) != nil
     }
     

@@ -30,13 +30,15 @@ struct GithubUsersResponse: Decodable {
     }
 }
 
+struct Paging<T> {}
+
 @NetworkGenerateProtocol(.struct, path: "test/", callAdapter: .combine)
 protocol ProtocolDemo: Sendable {
     @GET("users")
     func users(
         perPage per_page: Query<Int>,
         since: Query<Int>
-    ) -> Future<GithubUsersResponse, Error>
+    ) -> Future<Paging<GithubUsersResponse>, Error>
 }
 
 func getProtocolDemo() -> ProtocolDemo {
