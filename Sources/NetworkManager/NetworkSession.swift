@@ -1,6 +1,5 @@
 import Foundation
 import SharedModels
-@_exported import SharedModels
 
 public struct NetworkSession: Sendable {
     private let baseUrl: URL
