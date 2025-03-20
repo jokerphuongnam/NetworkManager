@@ -1,4 +1,6 @@
 import Foundation
+import SharedModels
+@_exported import SharedModels
 
 public struct NetworkSession: Sendable {
     private let baseUrl: URL
@@ -99,6 +101,224 @@ public struct NetworkSession: Sendable {
                 } catch {
                     call.onFailure?(error)
                 }
+            case .failure(let error):
+                call.onFailure?(error)
+            }
+        }
+        return call
+    }
+    
+    public func request<RequestBody, ResponseBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [NMInterceptor], body: RequestBody) -> Call<ResponseBody> {
+        let requestUrl = baseUrl.appendingPathComponent(url)
+        let requestCookie: HTTPCookie?
+        if let cookie {
+            requestCookie = cookie
+        } else if allowCookie && isDefaultCookie == nil || isDefaultCookie == true {
+            requestCookie = HTTPCookieStorage.shared.cookies(for: requestUrl)?.first
+        } else {
+            requestCookie = nil
+        }
+        
+        let call: Call<ResponseBody> = .init()
+        
+        do {
+            call.request = client.sendRequest(
+                url: requestUrl,
+                method: method,
+                headers: headers.merging(self.headers) { new, _ in new },
+                cookie: requestCookie,
+                interceptors: self.interceptors + interceptors,
+                body: try converterFactory.requestBodyConverter(body: body)
+            ) { result in
+                switch result {
+                case .success(let response):
+                    do {
+                        call.onResponse?(
+                            try converterFactory.responseConverter(data: response.data)
+                        )
+                    } catch {
+                        call.onFailure?(error)
+                    }
+                case .failure(let error):
+                    call.onFailure?(error)
+                }
+            }
+        } catch {
+            call.onFailure?(error)
+        }
+        return call
+    }
+    
+    public func request<ResponseBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [NMInterceptor]) -> Call<ResponseBody> {
+        let requestUrl = URL(string: url, relativeTo: baseUrl)!
+        let requestCookie: HTTPCookie?
+        if let cookie {
+            requestCookie = cookie
+        } else if allowCookie && isDefaultCookie == nil || isDefaultCookie == true {
+            requestCookie = HTTPCookieStorage.shared.cookies(for: requestUrl)?.first
+        } else {
+            requestCookie = nil
+        }
+        
+        let call: Call<ResponseBody> = .init()
+        
+        call.request = client.sendRequest(
+            url: requestUrl,
+            method: method,
+            headers: headers.merging(self.headers) { new, _ in new },
+            cookie: requestCookie,
+            interceptors: self.interceptors + interceptors,
+            body: nil
+        ) { result in
+            switch result {
+            case .success(let response):
+                do {
+                    call.onResponse?(
+                        try converterFactory.responseConverter(data: response.data)
+                    )
+                } catch {
+                    call.onFailure?(error)
+                }
+            case .failure(let error):
+                call.onFailure?(error)
+            }
+        }
+        return call
+    }
+    
+    public func request<RequestBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [NMInterceptor], body: RequestBody) -> Call<Response<Void>> {
+        let requestUrl = baseUrl.appendingPathComponent(url)
+        let requestCookie: HTTPCookie?
+        if let cookie {
+            requestCookie = cookie
+        } else if allowCookie && isDefaultCookie == nil || isDefaultCookie == true {
+            requestCookie = HTTPCookieStorage.shared.cookies(for: requestUrl)?.first
+        } else {
+            requestCookie = nil
+        }
+        
+        let call: Call<Response<Void>> = .init()
+        
+        do {
+            call.request = client.sendRequest(
+                url: requestUrl,
+                method: method,
+                headers: headers.merging(self.headers) { new, _ in new },
+                cookie: requestCookie,
+                interceptors: self.interceptors + interceptors,
+                body: try converterFactory.requestBodyConverter(body: body)
+            ) { result in
+                switch result {
+                case .success(let response):
+                    call.onResponse?(
+                        response.map { data in
+                            ()
+                        }
+                    )
+                case .failure(let error):
+                    call.onFailure?(error)
+                }
+            }
+        } catch {
+            call.onFailure?(error)
+        }
+        return call
+    }
+    
+    public func request(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [NMInterceptor]) -> Call<Response<Void>> {
+        let requestUrl = URL(string: url, relativeTo: baseUrl)!
+        let requestCookie: HTTPCookie?
+        if let cookie {
+            requestCookie = cookie
+        } else if allowCookie && isDefaultCookie == nil || isDefaultCookie == true {
+            requestCookie = HTTPCookieStorage.shared.cookies(for: requestUrl)?.first
+        } else {
+            requestCookie = nil
+        }
+        
+        let call: Call<Response<Void>> = .init()
+        
+        call.request = client.sendRequest(
+            url: requestUrl,
+            method: method,
+            headers: headers.merging(self.headers) { new, _ in new },
+            cookie: requestCookie,
+            interceptors: self.interceptors + interceptors,
+            body: nil
+        ) { result in
+            switch result {
+            case .success(let response):
+                call.onResponse?(
+                    response.map { data in
+                        ()
+                    }
+                )
+            case .failure(let error):
+                call.onFailure?(error)
+            }
+        }
+        return call
+    }
+    
+    public func request<RequestBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [NMInterceptor], body: RequestBody) -> Call<Void> {
+        let requestUrl = baseUrl.appendingPathComponent(url)
+        let requestCookie: HTTPCookie?
+        if let cookie {
+            requestCookie = cookie
+        } else if allowCookie && isDefaultCookie == nil || isDefaultCookie == true {
+            requestCookie = HTTPCookieStorage.shared.cookies(for: requestUrl)?.first
+        } else {
+            requestCookie = nil
+        }
+        
+        let call: Call<Void> = .init()
+        
+        do {
+            call.request = client.sendRequest(
+                url: requestUrl,
+                method: method,
+                headers: headers.merging(self.headers) { new, _ in new },
+                cookie: requestCookie,
+                interceptors: self.interceptors + interceptors,
+                body: try converterFactory.requestBodyConverter(body: body)
+            ) { result in
+                switch result {
+                case .success:
+                    call.onResponse?(())
+                case .failure(let error):
+                    call.onFailure?(error)
+                }
+            }
+        } catch {
+            call.onFailure?(error)
+        }
+        return call
+    }
+    
+    public func request(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [NMInterceptor]) -> Call<Void> {
+        let requestUrl = URL(string: url, relativeTo: baseUrl)!
+        let requestCookie: HTTPCookie?
+        if let cookie {
+            requestCookie = cookie
+        } else if allowCookie && isDefaultCookie == nil || isDefaultCookie == true {
+            requestCookie = HTTPCookieStorage.shared.cookies(for: requestUrl)?.first
+        } else {
+            requestCookie = nil
+        }
+        
+        let call: Call<Void> = .init()
+        
+        call.request = client.sendRequest(
+            url: requestUrl,
+            method: method,
+            headers: headers.merging(self.headers) { new, _ in new },
+            cookie: requestCookie,
+            interceptors: self.interceptors + interceptors,
+            body: nil
+        ) { result in
+            switch result {
+            case .success:
+                call.onResponse?(())
             case .failure(let error):
                 call.onFailure?(error)
             }

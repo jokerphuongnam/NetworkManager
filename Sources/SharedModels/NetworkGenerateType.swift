@@ -1,7 +1,7 @@
 public enum NetworkGenerateType {
     case `class`, `actor`, `struct`
     
-    var swiftString: String {
+    public var swiftString: String {
         switch self {
         case .class:
             return "final class"
@@ -9,6 +9,15 @@ public enum NetworkGenerateType {
             return "final actor"
         case .struct:
             return "struct"
+        }
+    }
+    
+    public var isRefType: Bool {
+        switch self {
+        case .class, .actor:
+            return true
+        case .struct:
+            return false
         }
     }
 }

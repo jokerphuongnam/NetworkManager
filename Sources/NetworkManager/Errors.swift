@@ -1,6 +1,8 @@
 public enum ErrorStatus: Sendable {
     case notDecodable
     case notEncodable
+    case releasedSelf
+    case releasedCall
 }
 
 public struct NMError: Error {

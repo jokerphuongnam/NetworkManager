@@ -4,6 +4,7 @@ import SwiftSyntaxMacros
 import SwiftSyntax
 import SwiftCompilerPluginMessageHandling
 import SwiftDiagnostics
+import SharedModels
 
 public struct NetworkGenerateProtocolMacro: PeerMacro {
     public static func expansion(
@@ -14,6 +15,8 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         let protocolDecl = try Self.getProtocolDecl(of: node, providingPeersOf: declaration, in: context)
         let typeKeyword = Self.extractNetworkGenerateType(from: node)
         let isAllowCookie = Self.extractAllowCookie(from: node)
+        let servicePath = Self.extractPath(from: node)
+        let callAdapterType = Self.extractCallAdaterFactoryType(of: node, providingPeersOf: declaration, in: context)
         
         let protocolName = protocolDecl.name.text
         let className = "\(protocolName)Impl"
@@ -27,7 +30,15 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         
         let methods = try protocolDecl.memberBlock.members.compactMap { member -> String? in
             if let funcDecl = member.decl.as(FunctionDeclSyntax.self) {
-                return try Self.getFunctionDeclSyntax(of: node, funcDecl,in: context, isAllowCookie: isAllowCookie)
+                return try Self.getFunctionDeclSyntax(
+                    of: node,
+                    funcDecl,
+                    in: context,
+                    type: typeKeyword,
+                    servicePath: servicePath,
+                    isAllowCookie: isAllowCookie,
+                    callAdapterType: callAdapterType
+                )
             }
             return nil
         }
@@ -37,7 +48,7 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
                 private let session: NetworkSession
                 private let headers: [String: String]
                 private let interceptors: [NMInterceptor]
-            
+                \(properties.isEmpty ? "" : "\n    ")\(properties.joined(separator: "\n\n    "))\(properties.isEmpty ? "" : "\n")
                 init(
                     session: NetworkSession,
                     headers: [String: String] = [:],
@@ -47,9 +58,8 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
                     self.headers = headers
                     self.interceptors = interceptors
                 }
-                \(properties.joined(separator: "\n    "))
                 
-                \(methods.joined(separator: "\n    "))
+                \(methods.joined(separator: "\n\n    "))
             }
             """
         
@@ -91,6 +101,21 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         }
     }
     
+    private static func extractCallAdaterFactoryType(
+        of node: AttributeSyntax,
+        providingPeersOf declaration: some DeclSyntaxProtocol,
+        in context: MacroExpansionContext
+    ) -> CallAdapterType? {
+        guard let arguments = node.arguments?.as(LabeledExprListSyntax.self) else {
+            return nil
+        }
+        guard let baseName = arguments.first(where: {$0.label?.description == "callAdapter"})?.expression.as(MemberAccessExprSyntax.self)?.declName.baseName else {
+            return nil
+        }
+        
+        return CallAdapterType(rawValue: baseName.text)
+    }
+    
     private static func extractAllowCookie(from node: AttributeSyntax) -> Bool? {
         guard let argumentList = node.arguments?.as(LabeledExprListSyntax.self) else {
             return nil
@@ -107,11 +132,29 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         return nil
     }
     
+    private static func extractPath(from node: AttributeSyntax) -> String? {
+        guard let argumentList = node.arguments?.as(LabeledExprListSyntax.self) else {
+            return nil
+        }
+        
+        for argument in argumentList {
+            if let label = argument.label?.text, label == "path",
+               let expr = argument.expression.as(StringLiteralExprSyntax.self) {
+                return expr.segments.first?.description.trimmingCharacters(in: .whitespaces)
+            }
+        }
+        
+        return nil
+    }
+    
     private static func getFunctionDeclSyntax(
         of node: AttributeSyntax,
         _ funcDecl: FunctionDeclSyntax,
         in context: some MacroExpansionContext,
-        isAllowCookie: Bool?
+        type: NetworkGenerateType,
+        servicePath: String?,
+        isAllowCookie: Bool?,
+        callAdapterType: CallAdapterType?
     ) throws -> String {
         let functionName = funcDecl.name.text
         let attributes = attributesBuild(funcDecl.attributes)
@@ -128,7 +171,13 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         } else {
             returnTypeString = ""
         }
-        let pathAfterReplacePath = try replacePathPlaceholders(of: node, in: context, path: attributes.memberPath, paths: paths)
+        let path: String
+        if let servicePath {
+            path = "\"" + servicePath + "/" + attributes.memberPath.dropFirst()
+        } else {
+            path = attributes.memberPath
+        }
+        let pathAfterReplacePath = try replacePathPlaceholders(of: node, in: context, path:  path.replacingOccurrences(of: "//", with: "/"), paths: paths)
         let pathWithQuery = if queries.isEmpty { pathAfterReplacePath } else { appendQueriesToPath(path: String(pathAfterReplacePath.dropLast()), queries: queries) + "\"" }
         
         var appendHeaders = [String]()
@@ -142,22 +191,123 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         } else {
             " + \(interceptorsArray.joined(separator: " + "))"
         }
+        
+        let isAsync = funcDecl.signature.effectSpecifiers?.asyncSpecifier != nil
+        let isThrows = funcDecl.signature.effectSpecifiers?.throwsClause != nil
+        
+        let asyncStr = isAsync ? " async" : ""
+        let throwsStr = isThrows ? " throws" : ""
+        
+        let callAdapterFactory = callAdapterType?.factory
+        if isAsync && !isThrows {
+            context.diagnose(
+                NetworkManagerDiagnostics().diagnostic(
+                    for: node,
+                    message: "Need async in throws function",
+                    id: "Need async in throws function"
+                )
+            )
+            throw MacroExpansionErrorMessage("Need async in throws function")
+        }
+        
+        let isCustomAdapter: Bool = if let callAdapterFactory {
+            callAdapterFactory.isApply(returnsType: returnType ?? "Void")
+        } else {
+            false
+        }
+        
+        let isSyncFunction = isAsync && isThrows
+        let isSeperateCall = isSyncFunction || isCustomAdapter
+        
+        let callGeneric = if let returnType {
+            if isSyncFunction {
+                returnType
+            } else {
+                extractInnerType(from: returnType) ?? returnType
+            }
+        } else {
+            "Void"
+        }
+        let transferHandler: String = isSyncFunction ? """
+        return try await withTaskCancellationHandler { \(type.isRefType ? """
+            [weak self, weak call] in
+            guard let call else {
+                throw NMError(status: .releasedCall, message: "call be released")
+            }
+            guard let self else {
+                call.cancel()
+                throw NMError(status: .releasedSelf, message: "self be released")
+            }
+            """: "")
+        return try await withCheckedThrowingContinuation {\(type.isRefType ? " [weak self, weak call]": "") continuation in\(type.isRefType ? """
+                    
+                        guard let call else {
+                            return
+                        }
+                        guard let self else {
+                            call.cancel()
+                            return
+                        }
+                    """ : "")
+            call.enqueue {\(type.isRefType ? " [weak self, weak call]": "") response in\(type.isRefType ? """
+                    
+                            guard let call else {
+                                return
+                            }
+                            guard let self else {
+                                call.cancel()
+                                return
+                            }
+                    """ : "")
+                continuation.resume(returning: response)
+            } onFailure: { error in
+                continuation.resume(throwing: error)
+            }       
+        }
+        } onCancel: {
+            call.cancel()
+        }
+        """ : callAdapterFactory?.makeCallAdapter(type: type, enqueueCall: """
+        
+            call.enqueue {\(type.isRefType ? " [weak self, weak call]": "") response in\(type.isRefType ? """
+                    
+                            guard let call else {
+                                return
+                            }
+                            guard let self else {
+                                call.cancel()
+                                return
+                            }
+                    """ : "")
+                {success}
+            } onFailure: { error in
+                {error}
+            }
+        """) ?? ""
         return """
-            func \(functionName)(\(params))\(returnTypeString) {
+            func \(functionName)(\(params))\(asyncStr)\(throwsStr)\(returnTypeString) {
                     \(appendHeaders.isEmpty ? "let" : "var") headers = \(attributes.headers).merging(self.headers) { new, _ in new }
                     \(appendHeaders.joined(separator: "\n        "))
                     \(interceptors.isEmpty ? "let" : "var") requestInterceptor = self.interceptors\(interceptorsArrayStr)
                     \(interceptors.map { "requestInterceptor.append(\($0))" }.joined(separator: "\n        "))
-                    return session.request(
+                    \(isSeperateCall ? "let call: Call<\(callGeneric)> =" : "return") session.request(
                         url: \(pathWithQuery),
                         method: \(attributes.method),
                         headers: headers,
                         isDefaultCookie: \(boolToString(isAllowCookie)),
                         cookie: \(cookieStr),
                         interceptors: requestInterceptor\(body == nil ? "": ",\n            body: body")
-                    )
+                    )\(isSeperateCall ? transferHandler : "")
             }
             """
+    }
+    
+    private static func extractInnerType(from input: String) -> String? {
+        let pattern = #"(?<=<)(.*?)(?=[,>])"#
+        if let range = input.range(of: pattern, options: .regularExpression) {
+            return String(input[range])
+        }
+        return nil
     }
     
     private static func boolToString(_ value: Bool?) -> String {
@@ -422,18 +572,6 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
                     } else {
                         isAllowCookie = false
                     }
-//                    if let arguments = attribute.arguments?.as(LabeledExprListSyntax.self) {
-//                        for argument in arguments {
-//                            test = argument.
-//                            if let labeledExpr = argument.as(LabeledExprSyntax.self),
-//                               labeledExpr.label?.text == "isAllow",
-//                               let value = labeledExpr.expression.as(BooleanLiteralExprSyntax.self) {
-//                                isAllowCookie = value.literal.tokenKind == .keyword(.true)
-//                            }
-//                        }
-//                    } else {
-//                        isAllowCookie = false
-//                    }
                 }
             }
         }
