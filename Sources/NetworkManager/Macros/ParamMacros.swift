@@ -8,7 +8,7 @@ public typealias Path<T> = Param<T>
 public typealias Query<T> = Param<T>
 public typealias Header = Param<String>
 
-public struct Param<T> {
+public struct Param<T>: @unchecked Sendable {
     public let value: T
 
     init(_ value: T) {

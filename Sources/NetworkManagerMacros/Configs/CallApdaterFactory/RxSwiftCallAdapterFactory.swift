@@ -15,13 +15,13 @@ struct RxSwiftCallAdapterFactory: CallApdaterFactory {
         """
             return Single.create {\(type.isRefType ? " [weak self, weak call]": "") single in\(type.isRefType ? """
                     
-                        guard let call else {
-                            return
-                        }
-                        guard let self else {
-                            call.cancel()
-                            return
-                        }
+                    guard let call else {
+                        return
+                    }
+                    guard let self else {
+                        call.cancel()
+                        return
+                    }
                     """ : "")
                 \(enqueueCall
                     .replacingOccurrences(of: "{success}", with: "single(.success(response))")

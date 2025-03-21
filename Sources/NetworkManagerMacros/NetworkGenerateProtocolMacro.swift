@@ -23,7 +23,15 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         
         let properties = try protocolDecl.memberBlock.members.compactMap { member -> String? in
             if let varDecl = member.decl.as(VariableDeclSyntax.self) {
-                return try Self.getVariableDeclSyntax(varDecl)
+                return try Self.getVariableDeclSyntax(
+                    of: node,
+                    varDecl,
+                    in: context,
+                    type: typeKeyword,
+                    servicePath: servicePath,
+                    isAllowCookie: isAllowCookie,
+                    callAdapterType: callAdapterType
+                )
             }
             return nil
         }
@@ -147,6 +155,132 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         return nil
     }
     
+    private static func getVariableDeclSyntax(
+        of node: AttributeSyntax,
+        _ varDecl: VariableDeclSyntax,
+        in context: some MacroExpansionContext,
+        type: NetworkGenerateType,
+        servicePath: String?,
+        isAllowCookie: Bool?,
+        callAdapterType: CallAdapterType?
+    ) throws -> String {
+        let bindings = try varDecl.bindings.compactMap { binding  -> String? in
+            var isAsyncGet: Bool = false
+            var isThrowsGet: Bool = false
+            if let accessorBlock = binding.accessorBlock {
+                let accessorDeclList =  accessorBlock.accessors.cast(AccessorDeclListSyntax.self)
+                let hasSetter = accessorDeclList.contains { accessor in
+                    return accessor.accessorSpecifier.tokenKind == .keyword(.set)
+                }
+                if hasSetter {
+                    throw MacroExpansionErrorMessage("@NetworkGenerateProtocol can only be used on read-only variable")
+                }
+                
+                isAsyncGet = accessorDeclList.contains { accessor in
+                    if accessor.accessorSpecifier.tokenKind == .keyword(.get) {
+                        return accessor.effectSpecifiers?.asyncSpecifier?.tokenKind == .keyword(.async)
+                    }
+                    return false
+                }
+                isThrowsGet = accessorDeclList.contains { accessor in
+                    if accessor.accessorSpecifier.tokenKind == .keyword(.get) {
+                        return accessor.effectSpecifiers?.throwsClause != nil
+                    }
+                    return false
+                }
+            }
+            
+            // Extract var name and type
+            let varName = binding.pattern.description.trimmingCharacters(in: .whitespaces)
+            let varType = binding.typeAnnotation?.type.description.trimmingCharacters(in: .whitespaces) ?? "Any"
+            
+            let attributes = attributesBuild(varDecl.attributes)
+            
+            let path: String
+            if let servicePath {
+                path = "\"" + servicePath + "/" + attributes.memberPath.dropFirst()
+            } else {
+                path = attributes.memberPath
+            }
+            try Self.containsCurlyBracesPattern(
+                of: node,
+                in: context,
+                path: path
+            )
+            
+            if isAsyncGet || isThrowsGet {
+                if isAsyncGet && !isThrowsGet {
+                    context.diagnose(
+                        NetworkManagerDiagnostics().diagnostic(
+                            for: node,
+                            message: "Need async in throws function",
+                            id: "Need async in throws function"
+                        )
+                    )
+                    throw MacroExpansionErrorMessage("Need async in throws function")
+                }
+                let asyncText = if isAsyncGet { " async" } else { "" }
+                let throwsText = if isThrowsGet { " throws" } else { "" }
+                
+                let isAsyncThrowsGet = isAsyncGet && isThrowsGet
+                let callGeneric = varType
+                let asyncThrowsString = Self.transferHandler(
+                    isSyncFunction: true,
+                    type: type,
+                    callAdapterFactory: nil,
+                    isAsyncThrowsGet: true
+                )
+                return """
+                \(type == .actor ? "nonisolated(unsafe) " : "")var \(varName): \(varType) {
+                        get\(asyncText)\(throwsText) {
+                                let headers = \(attributes.headers).merging(self.headers) { new, _ in new }
+                                let requestInterceptor = self.interceptors
+                                \(isAsyncThrowsGet ? "let call: Call<\(callGeneric)> =" : "return") session.request(
+                                    url: \(path + "\""),
+                                    method: \(attributes.method),
+                                    headers: headers,
+                                    isDefaultCookie: \(boolToString(isAllowCookie)),
+                                    cookie: nil,
+                                    interceptors: requestInterceptor
+                                )\(isAsyncThrowsGet ? """
+                                
+                                \(asyncThrowsString)
+                                """ : "")
+                        }
+                }
+                """
+            } else {
+                let callAdapterFactory = callAdapterType?.factory
+                let callGeneric = extractInnerType(from: varType) ?? varType
+                let isCustomAdapter: Bool = if let callAdapterFactory {
+                    callAdapterFactory.isApply(returnsType: varType)
+                } else {
+                    false
+                }
+                return """
+                \(type == .actor ? "nonisolated(unsafe) " : "")var \(varName): \(varType) {
+                        let headers = \(attributes.headers).merging(self.headers) { new, _ in new }
+                        let requestInterceptor = self.interceptors
+                        \(isCustomAdapter ? "let call: Call<\(callGeneric)> =" : "return") session.request(
+                            url: \(path + "\""),
+                            method: \(attributes.method),
+                            headers: headers,
+                            isDefaultCookie: \(boolToString(isAllowCookie)),
+                            cookie: nil,
+                            interceptors: requestInterceptor
+                        )\(isCustomAdapter ? Self.transferHandler(
+                            isSyncFunction: false,
+                            type: type,
+                            callAdapterFactory: callAdapterFactory,
+                            isAsyncThrowsGet: false
+                        ) : "")
+                }
+                """
+            }
+        }
+        return bindings.joined(separator: "\n    ")
+    }
+    
     private static func getFunctionDeclSyntax(
         of node: AttributeSyntax,
         _ funcDecl: FunctionDeclSyntax,
@@ -228,62 +362,12 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         } else {
             "Void"
         }
-        let transferHandler: String = isSyncFunction ? """
-        return try await withTaskCancellationHandler { \(type.isRefType ? """
-            [weak self, weak call] in
-            guard let call else {
-                throw NMError(status: .releasedCall, message: "call be released")
-            }
-            guard let self else {
-                call.cancel()
-                throw NMError(status: .releasedSelf, message: "self be released")
-            }
-            """: "")
-        return try await withCheckedThrowingContinuation {\(type.isRefType ? " [weak self, weak call]": "") continuation in\(type.isRefType ? """
-                    
-                        guard let call else {
-                            return
-                        }
-                        guard let self else {
-                            call.cancel()
-                            return
-                        }
-                    """ : "")
-            call.enqueue {\(type.isRefType ? " [weak self, weak call]": "") response in\(type.isRefType ? """
-                    
-                            guard let call else {
-                                return
-                            }
-                            guard let self else {
-                                call.cancel()
-                                return
-                            }
-                    """ : "")
-                continuation.resume(returning: response)
-            } onFailure: { error in
-                continuation.resume(throwing: error)
-            }       
-        }
-        } onCancel: {
-            call.cancel()
-        }
-        """ : callAdapterFactory?.makeCallAdapter(type: type, enqueueCall: """
-        
-            call.enqueue {\(type.isRefType ? " [weak self, weak call]": "") response in\(type.isRefType ? """
-                    
-                            guard let call else {
-                                return
-                            }
-                            guard let self else {
-                                call.cancel()
-                                return
-                            }
-                    """ : "")
-                {success}
-            } onFailure: { error in
-                {error}
-            }
-        """) ?? ""
+        let transferHandler: String = Self.transferHandler(
+            isSyncFunction: isSyncFunction,
+            type: type,
+            callAdapterFactory: callAdapterFactory,
+            isAsyncThrowsGet: false
+        )
         return """
             func \(functionName)(\(params))\(asyncStr)\(throwsStr)\(returnTypeString) {
                     \(appendHeaders.isEmpty ? "let" : "var") headers = \(attributes.headers).merging(self.headers) { new, _ in new }
@@ -315,6 +399,25 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
             return String(value)
         }
         return "nil"
+    }
+    
+    private static func containsCurlyBracesPattern(
+        of node: AttributeSyntax,
+        in context: some MacroExpansionContext,
+        path: String
+    ) throws {
+        let pattern = "\\{[^}]*\\}"
+        if path.range(of: pattern, options: .regularExpression) != nil {
+            let msgError = "Variable can't fill path"
+            context.diagnose(
+                NetworkManagerDiagnostics().diagnostic(
+                    for: node,
+                    message: msgError,
+                    id: "Variable can't fill path"
+                )
+            )
+            throw MacroExpansionErrorMessage(msgError)
+        }
     }
     
     private static func replacePathPlaceholders(
@@ -373,60 +476,6 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         }
         
         return result
-    }
-    
-    private static func getVariableDeclSyntax(_ varDecl: VariableDeclSyntax) throws -> String {
-        let bindings = try varDecl.bindings.compactMap { binding  -> String? in
-            var isAsyncGet: Bool = false
-            var isThrowsGet: Bool = false
-            if let accessorBlock = binding.accessorBlock {
-                let accessorDeclList =  accessorBlock.accessors.cast(AccessorDeclListSyntax.self)
-                let hasSetter = accessorDeclList.contains { accessor in
-                    return accessor.accessorSpecifier.tokenKind == .keyword(.set)
-                }
-                if hasSetter {
-                    throw MacroExpansionErrorMessage("@NetworkGenerateProtocol can only be used on read-only variable")
-                }
-                
-                isAsyncGet = accessorDeclList.contains { accessor in
-                    if accessor.accessorSpecifier.tokenKind == .keyword(.get) {
-                        return accessor.effectSpecifiers?.asyncSpecifier?.tokenKind == .keyword(.async)
-                    }
-                    return false
-                }
-                isThrowsGet = accessorDeclList.contains { accessor in
-                    if accessor.accessorSpecifier.tokenKind == .keyword(.get) {
-                        return accessor.effectSpecifiers?.throwsClause != nil
-                    }
-                    return false
-                }
-            }
-            
-            // Extract var name and type
-            let varName = binding.pattern.description.trimmingCharacters(in: .whitespaces)
-            let varType = binding.typeAnnotation?.type.description.trimmingCharacters(in: .whitespaces) ?? "Any"
-            
-            //            let attribute = attributeBuild(varDecl.attributes)
-            
-            if isAsyncGet || isThrowsGet {
-                let asyncText = if isAsyncGet { " async" } else { "" }
-                let throwsText = if isThrowsGet { " throws" } else { "" }
-                return """
-                var \(varName): \(varType) {
-                        get\(asyncText)\(throwsText) {
-                    
-                        }
-                }
-                """
-            } else {
-                return """
-                var \(varName): \(varType) {
-                    
-                }
-                """
-            }
-        }
-        return bindings.joined(separator: "\n    ")
     }
     
     private static func parameterBuild(
@@ -521,7 +570,7 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
     
     private static func isInterceptorsArray(_ typeString: String) -> Bool {
         let pattern = #"\[(?:.*\.)?NMInterceptor\]"#
-           return typeString.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+        return typeString.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
     
     private static func attributesBuild(_ attributes: AttributeListSyntax) -> AtrributeValue {
@@ -584,21 +633,67 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         )
     }
     
-}
-
-struct AtrributeValue {
-    let memberPath: String
-    let method: String
-    let headers: [String: String]
-    let isAllowCookie: Bool?
-}
-
-struct ParameterValue {
-    let name: String
-}
-
-enum ParameterType {
-    case query
-    case path
-    case header
+    private static func transferHandler(
+        isSyncFunction: Bool,
+        type: NetworkGenerateType,
+        callAdapterFactory: CallApdaterFactory?,
+        isAsyncThrowsGet: Bool
+    ) -> String {
+        isSyncFunction ? """
+        return try await withTaskCancellationHandler { \(type.isRefType ? """
+            [weak self, weak call] in
+            guard let call else {
+                throw NMError(status: .releasedCall, message: "call be released")
+            }
+            guard let self else {
+                call.cancel()
+                throw NMError(status: .releasedSelf, message: "self be released")
+            }
+            """: "")
+        return try await withCheckedThrowingContinuation {\(type.isRefType ? " [weak self, weak call]": "") continuation in\(type.isRefType ? """
+                    
+                        guard let call else {
+                            return
+                        }
+                        guard let self else {
+                            call.cancel()
+                            return
+                        }
+                    """ : "")
+            call.enqueue {\(type.isRefType ? " [weak self, weak call]": "") response in\(type.isRefType ? """
+                    
+                            guard let call else {
+                                return
+                            }
+                            guard self != nil else {
+                                call.cancel()
+                                return
+                            }
+                    """ : "")
+                continuation.resume(returning: response)
+            } onFailure: { error in
+                continuation.resume(throwing: error)
+            }       
+        }
+        } onCancel: {
+            call.cancel()
+        }
+        """ : callAdapterFactory?.makeCallAdapter(type: type, enqueueCall: """
+        
+            call.enqueue {\(type.isRefType ? " [weak self, weak call]": "") response in\(type.isRefType ? """
+                    
+                            guard let call else {
+                                return
+                            }
+                            guard let self else {
+                                call.cancel()
+                                return
+                            }
+                    """ : "")
+                {success}
+            } onFailure: { error in
+                {error}
+            }
+        """) ?? ""
+    }
 }

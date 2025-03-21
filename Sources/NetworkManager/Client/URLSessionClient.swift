@@ -2,7 +2,7 @@ import Foundation
 
 public struct URLSessionClient: Client {
     private let urlSession: URLSession
-    nonisolated(unsafe) public static let shared: Self = .init(urlSession: .shared)
+    public static let shared: Self = .init(urlSession: .shared)
     
     public init(urlSession: URLSession) {
         self.urlSession = urlSession
