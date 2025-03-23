@@ -83,6 +83,12 @@ protocol ProtocolDemo {
         firstFile: MultiPartBody,
         secondFile: MultiPartBody
     ) -> Future<Paging<GithubUsersResponse>, Error>
+    
+    @GET
+    func userDetails(
+        loginUser login_user: Path<String>,
+        body: TestRequest
+    ) -> Future<Paging<GithubUsersResponse>, Error>
 }
 
 func getProtocolDemo() -> ProtocolDemo {

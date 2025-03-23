@@ -380,7 +380,7 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
                     \(appendHeaders.joined(separator: "\n        "))
                     \(interceptors.isEmpty ? "let" : "var") requestInterceptor = self.interceptors\(interceptorsArrayStr)
                     \(interceptors.map { "requestInterceptor.append(\($0))" }.joined(separator: "\n        "))
-                    var parts: [MultiPartBody]? = \(partsStr)
+                    \(parts.isEmpty ? "let": "var") parts: [MultiPartBody]? = \(partsStr)
                     
                     \(isSeperateCall ? "let call: Call<\(callGeneric)> =" : "return") session.request(
                         url: \(pathWithQuery.isEmpty ? "\"\"" : pathWithQuery),
