@@ -262,7 +262,7 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
                         let headers = \(attributes.headers).merging(self.headers) { new, _ in new }
                         let requestInterceptor = self.interceptors
                         \(isCustomAdapter ? "let call: Call<\(callGeneric)> =" : "return") session.request(
-                            url: \(path + "\""),
+                            url: \(path.isEmpty ? "\"\"" : (path + "\"")),
                             method: \(attributes.method),
                             headers: headers,
                             isDefaultCookie: \(boolToString(isAllowCookie)),
@@ -381,9 +381,9 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
                     \(interceptors.isEmpty ? "let" : "var") requestInterceptor = self.interceptors\(interceptorsArrayStr)
                     \(interceptors.map { "requestInterceptor.append(\($0))" }.joined(separator: "\n        "))
                     var parts: [MultiPartBody]? = \(partsStr)
-            
+                    
                     \(isSeperateCall ? "let call: Call<\(callGeneric)> =" : "return") session.request(
-                        url: \(pathWithQuery),
+                        url: \(pathWithQuery.isEmpty ? "\"\"" : pathWithQuery),
                         method: \(attributes.method),
                         headers: headers,
                         isDefaultCookie: \(boolToString(isAllowCookie)),

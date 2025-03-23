@@ -63,13 +63,21 @@ struct TestRequest {
 
 struct Paging<T>: Sendable {}
 
-@RestAPIService(.actor, path: "users", callAdapter: .combine)
+@RestAPIService(.actor, callAdapter: .combine)
 protocol ProtocolDemo {
     @GET
     var users: Future<Paging<GithubUsersResponse>, Error> { get }
     
     @GET("{login_user}")
     func userDetail(
+        loginUser login_user: Path<String>,
+        body: TestRequest,
+        firstFile: MultiPartBody,
+        secondFile: MultiPartBody
+    ) -> Future<Paging<GithubUsersResponse>, Error>
+    
+    @GET
+    func userDetails(
         loginUser login_user: Path<String>,
         body: TestRequest,
         firstFile: MultiPartBody,
