@@ -1,13 +1,24 @@
 import Foundation
 
 public protocol Client: Sendable {
-    func sendRequest(
+    func request(
         url: URL,
         method: String,
         headers: [String: String],
         cookie: HTTPCookie?,
         interceptors: [NMInterceptor],
         body: Data?,
+        completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void
+    ) -> Request
+    
+    func request(
+        url: URL,
+        method: String,
+        headers: [String: String],
+        cookie: HTTPCookie?,
+        interceptors: [NMInterceptor],
+        body: Data?,
+        parts: [MultiPartBody],
         completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void
     ) -> Request
 }

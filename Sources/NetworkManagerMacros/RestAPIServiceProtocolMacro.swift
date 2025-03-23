@@ -6,7 +6,7 @@ import SwiftCompilerPluginMessageHandling
 import SwiftDiagnostics
 import SharedModels
 
-public struct NetworkGenerateProtocolMacro: PeerMacro {
+public struct RestAPIServiceProtocolMacro: PeerMacro {
     public static func expansion(
         of node: AttributeSyntax,
         providingPeersOf declaration: some DeclSyntaxProtocol,
@@ -52,7 +52,7 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         }
         
         let classImplementation = """
-            \(typeKeyword.swiftString) \(className): \(protocolName) {
+            \(typeKeyword.swiftString) \(className): \(typeKeyword == .actor ? "@preconcurrency " : "")\(protocolName) {
                 private let session: NetworkSession
                 private let headers: [String: String]
                 private let interceptors: [NMInterceptor]
@@ -292,7 +292,7 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
     ) throws -> String {
         let functionName = funcDecl.name.text
         let attributes = attributesBuild(funcDecl.attributes)
-        let (params, paths, queries, headers, body, cookie, interceptors, interceptorsArray) = try parameterBuild(
+        let (params, paths, queries, headers, body, cookie, interceptors, interceptorsArray, parts) = try parameterBuild(
             of: node,
             funcDecl.signature,
             in: context
@@ -324,6 +324,12 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
             ""
         } else {
             " + \(interceptorsArray.joined(separator: " + "))"
+        }
+        
+        let partsStr = if parts.isEmpty {
+            "nil"
+        } else {
+            "[]\n" + parts.map { "parts?.append(\($0))" }.joined(separator: "\n")
         }
         
         let isAsync = funcDecl.signature.effectSpecifiers?.asyncSpecifier != nil
@@ -374,13 +380,16 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
                     \(appendHeaders.joined(separator: "\n        "))
                     \(interceptors.isEmpty ? "let" : "var") requestInterceptor = self.interceptors\(interceptorsArrayStr)
                     \(interceptors.map { "requestInterceptor.append(\($0))" }.joined(separator: "\n        "))
+                    var parts: [MultiPartBody]? = \(partsStr)
+            
                     \(isSeperateCall ? "let call: Call<\(callGeneric)> =" : "return") session.request(
                         url: \(pathWithQuery),
                         method: \(attributes.method),
                         headers: headers,
                         isDefaultCookie: \(boolToString(isAllowCookie)),
                         cookie: \(cookieStr),
-                        interceptors: requestInterceptor\(body == nil ? "": ",\n            body: body")
+                        interceptors: requestInterceptor,
+                        parts: parts\(body == nil ? "": ",\n            body: body")
                     )\(isSeperateCall ? transferHandler : "")
             }
             """
@@ -482,7 +491,7 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         of node: AttributeSyntax,
         _ signature: FunctionSignatureSyntax,
         in context: some MacroExpansionContext
-    ) throws -> (header: String, paths: [String], queries: [String], params: [String], body: String?, cookie: String?, interceptors: [String], interceptorsArray: [String]) {
+    ) throws -> (header: String, paths: [String], queries: [String], params: [String], body: String?, cookie: String?, interceptors: [String], interceptorsArray: [String], parts: [String]) {
         var params = [String]()
         var paths = [String]()
         var queries = [String]()
@@ -491,6 +500,7 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
         var cookie: String?
         var interceptors: [String] = []
         var interceptorsArray: [String] = []
+        var parts: [String] = []
         
         for param in signature.parameterClause.parameters {
             let label = param.firstName.text
@@ -529,6 +539,8 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
                 queries.append(name)
             } else if isHeader(paramType) {
                 headers.append(name)
+            } else if isMultiPartBody(paramType) {
+                parts.append(name)
             }
             
             params.append("\(labelText)\(name): \(paramType)")
@@ -544,7 +556,8 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
             body,
             cookie,
             interceptors,
-            interceptorsArray
+            interceptorsArray,
+            parts
         )
     }
     
@@ -570,6 +583,11 @@ public struct NetworkGenerateProtocolMacro: PeerMacro {
     
     private static func isInterceptorsArray(_ typeString: String) -> Bool {
         let pattern = #"\[(?:.*\.)?NMInterceptor\]"#
+        return typeString.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+    
+    private static func isMultiPartBody(_ typeString: String) -> Bool {
+        let pattern = #"(?:^|\.)(MultiPartBody)$"#
         return typeString.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
     

@@ -57,16 +57,23 @@ public struct FetchGithubUserDetailsResponse: Decodable, Sendable {
     }
 }
 
+struct TestRequest {
+    
+}
+
 struct Paging<T>: Sendable {}
 
-@NetworkGenerateProtocol(.actor, path: "users", callAdapter: .combine)
-@preconcurrency protocol ProtocolDemo {
+@RestAPIService(.actor, path: "users", callAdapter: .combine)
+protocol ProtocolDemo {
     @GET
     var users: Future<Paging<GithubUsersResponse>, Error> { get }
     
     @GET("{login_user}")
     func userDetail(
-        loginUser login_user: Path<String>
+        loginUser login_user: Path<String>,
+        body: TestRequest,
+        firstFile: MultiPartBody,
+        secondFile: MultiPartBody
     ) -> Future<Paging<GithubUsersResponse>, Error>
 }
 
@@ -83,26 +90,3 @@ func getProtocolDemo() -> ProtocolDemo {
 }
 
 let demo = getProtocolDemo()
-
-
-//Task.detached(priority: .background) {
-//    var call = demo.users(
-//        perPage: 5,
-//        since: 4
-//    )
-//    
-//    call.enqueue { response in
-//        print(response)
-//    } onFailure: { error in
-//        print(error)
-//    }
-//}
-
-//Task {
-//    let response = try await demo.users
-//    print(response)
-//}
-
-//var cancellables = Set<Cancellable>()
-//
-//demo.users.sink { print($0) }.store(in: &cancellables)
