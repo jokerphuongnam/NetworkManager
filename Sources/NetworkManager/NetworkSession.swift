@@ -13,8 +13,8 @@ public struct NetworkSession: Sendable {
         baseUrl: URL,
         client: Client,
         converterFactory: ConverterFactory,
-        headers: [String: String],
-        interceptors: [NMInterceptor],
+        headers: [String: String] = [:],
+        interceptors: [NMInterceptor] = [],
         allowCookie: Bool = false
     ) {
         self.baseUrl = baseUrl
