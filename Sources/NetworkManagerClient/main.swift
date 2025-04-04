@@ -74,7 +74,7 @@ protocol ProtocolDemo {
         body: TestRequest,
         firstFile: MultiPartBody,
         secondFile: MultiPartBody
-    ) -> Future<Paging<GithubUsersResponse>, Error>
+    ) -> Future<GithubUsersResponse, Error>
     
     @GET
     func userDetails(

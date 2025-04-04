@@ -396,11 +396,26 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
     }
     
     private static func extractInnerType(from input: String) -> String? {
-        let pattern = #"(?<=<)([^<>]+(?:<[^<>]+>)?)(?=[,>])"#
-        if let range = input.range(of: pattern, options: .regularExpression) {
-            return String(input[range])
+        guard let start = input.firstIndex(of: "<") else { return nil }
+        
+        var bracketCount = 0
+        var result = ""
+        
+        for char in input[start...].dropFirst() {
+            if char == "<" {
+                bracketCount += 1
+            } else if char == ">" {
+                if bracketCount == 0 { break }
+                bracketCount -= 1
+            }
+            result.append(char)
         }
-        return nil
+        
+        if let commaIndex = result.firstIndex(of: ",") {
+            result = String(result[..<commaIndex])
+        }
+        
+        return result.isEmpty ? nil : result
     }
     
     private static func boolToString(_ value: Bool?) -> String {
