@@ -46,6 +46,9 @@ extension Param: ExpressibleByFloatLiteral where T: _ExpressibleByBuiltinFloatLi
     }
 }
 
+@available(watchOS 7.0, *)
+@available(tvOS 14.0, *)
+@available(iOS 14.0, *)
 @available(macOS 11.0, *)
 extension Param where T == Float16 {
     public init(integerLiteral value: Int64) {
