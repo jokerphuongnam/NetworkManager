@@ -57,16 +57,22 @@ public struct FetchGithubUserDetailsResponse: Decodable, Sendable {
     }
 }
 
-struct TestRequest {
-    
+struct TestRequest: Codable {
+    let a: String
 }
 
 struct Paging<T>: Sendable {}
 
 @RestAPIService(.actor, callAdapter: .combine)
 protocol ProtocolDemo {
+//    @GET
+//    var users: Future<Paging<GithubUsersResponse>, Error> { get }
+    
     @GET
-    var users: Future<Paging<GithubUsersResponse>, Error> { get }
+    func testQueries(
+        query: Query<Int8>,
+        b: Query<Float64>?,
+    ) -> Future<GithubUsersResponse, Error>
     
     @GET("{login_user}")
     func userDetail(
@@ -104,3 +110,13 @@ func getProtocolDemo() -> ProtocolDemo {
 }
 
 let demo = getProtocolDemo()
+demo.testQueries(query: 4, b: 2.0).sink { result in
+    switch result {
+        case .failure(let error):
+            print("Error occurred: \(error)")
+        case .finished:
+            print("Response")
+        }
+} receiveValue: { res in
+    
+}

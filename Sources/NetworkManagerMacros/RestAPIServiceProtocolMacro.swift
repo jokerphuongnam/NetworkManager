@@ -292,7 +292,7 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
     ) throws -> String {
         let functionName = funcDecl.name.text
         let attributes = attributesBuild(funcDecl.attributes)
-        let (params, paths, queries, headers, body, cookie, interceptors, interceptorsArray, parts) = try parameterBuild(
+        let (params, paths, queries, optionalQueries, headers, body, cookie, interceptors, interceptorsArray, parts) = try parameterBuild(
             of: node,
             funcDecl.signature,
             in: context
@@ -312,7 +312,8 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
             path = attributes.memberPath
         }
         let pathAfterReplacePath = try replacePathPlaceholders(of: node, in: context, path:  path.replacingOccurrences(of: "//", with: "/"), paths: paths)
-        let pathWithQuery = if queries.isEmpty { pathAfterReplacePath } else { appendQueriesToPath(path: String(pathAfterReplacePath.dropLast()), queries: queries) + "\"" }
+        let pathWithQueries = if queries.isEmpty { pathAfterReplacePath } else { appendQueriesToPath(path: String(pathAfterReplacePath.dropLast()), queries: queries) + "\"" }
+        let pathWithOptionalQueries = if optionalQueries.isEmpty { pathWithQueries } else { appendOptionalQueriesToPath(path: pathWithQueries, optionalQueries: optionalQueries) }
         
         var appendHeaders = [String]()
         for header in headers {
@@ -374,16 +375,18 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
             callAdapterFactory: callAdapterFactory,
             isAsyncThrowsGet: false
         )
+        let pathRemoveBreakLines = pathWithOptionalQueries.replacingOccurrences(of: "\n", with: "")
+        let headersPattern = "\(appendHeaders.isEmpty ? "let" : "var") headers = \(attributes.headers).merging(self.headers) { new, _ in new }"
         return """
             func \(functionName)(\(params))\(asyncStr)\(throwsStr)\(returnTypeString) {
-                    \(appendHeaders.isEmpty ? "let" : "var") headers = \(attributes.headers).merging(self.headers) { new, _ in new }
+                    \(headersPattern)
                     \(appendHeaders.joined(separator: "\n        "))
                     \(interceptors.isEmpty ? "let" : "var") requestInterceptor = self.interceptors\(interceptorsArrayStr)
                     \(interceptors.map { "requestInterceptor.append(\($0))" }.joined(separator: "\n        "))
                     \(parts.isEmpty ? "let": "var") parts: [MultiPartBody]? = \(partsStr)
                     
                     \(isSeperateCall ? "let call: Call<\(callGeneric)> =" : "return") session.request(
-                        url: \(pathWithQuery.isEmpty ? "\"\"" : pathWithQuery),
+                        url: \(pathWithOptionalQueries.isEmpty ? "\"\"" : (pathWithOptionalQueries.first != "\"" ? ("\"" + pathRemoveBreakLines) : pathRemoveBreakLines )),
                         method: \(attributes.method),
                         headers: headers,
                         isDefaultCookie: \(boolToString(isAllowCookie)),
@@ -502,11 +505,26 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
         return result
     }
     
+    private static func appendOptionalQueriesToPath(path: String, optionalQueries: [String]) -> String {
+        var result = path
+        let queryString = optionalQueries.map { "\\(\($0).map { \"\($0)=\\($0.value)\" } ?? \"\")" }.joined(separator: "&")
+        
+        if let queryStartIndex = result.firstIndex(of: "?") {
+            let queryInsertionIndex = result.index(after: queryStartIndex)
+            result.insert("&", at: queryInsertionIndex)
+            result.insert(contentsOf: queryString, at: result.index(after: queryStartIndex))
+        } else {
+            result += "?\(queryString)"
+        }
+        
+        return result
+    }
+    
     private static func parameterBuild(
         of node: AttributeSyntax,
         _ signature: FunctionSignatureSyntax,
         in context: some MacroExpansionContext
-    ) throws -> (header: String, paths: [String], queries: [String], params: [String], body: String?, cookie: String?, interceptors: [String], interceptorsArray: [String], parts: [String]) {
+    ) throws -> (header: String, paths: [String], queries: [String], optionalQueries: [String], params: [String], body: String?, cookie: String?, interceptors: [String], interceptorsArray: [String], parts: [String]) {
         var params = [String]()
         var paths = [String]()
         var queries = [String]()
@@ -516,6 +534,7 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
         var interceptors: [String] = []
         var interceptorsArray: [String] = []
         var parts: [String] = []
+        var optionalQueries: [String] = []
         
         for param in signature.parameterClause.parameters {
             let label = param.firstName.text
@@ -552,6 +571,8 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
                 paths.append(name)
             } else if isQuery(paramType) {
                 queries.append(name)
+            } else if isOptionalQuery(paramType) {
+                optionalQueries.append(name)
             } else if isHeader(paramType) {
                 headers.append(name)
             } else if isMultiPartBody(paramType) {
@@ -567,6 +588,7 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
             paramString,
             paths,
             queries,
+            optionalQueries,
             headers,
             body,
             cookie,
@@ -578,6 +600,11 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
     
     private static func isQuery(_ typeString: String) -> Bool {
         let pattern = #"(^|\.)Query<[^,<>]+>$"#
+        return typeString.range(of: pattern, options: .regularExpression) != nil
+    }
+    
+    private static func isOptionalQuery(_ typeString: String) -> Bool {
+        let pattern = #"(^|\.)Query<[^,<>]+>\??$"#
         return typeString.range(of: pattern, options: .regularExpression) != nil
     }
     

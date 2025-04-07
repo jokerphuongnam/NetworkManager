@@ -16,6 +16,7 @@ public struct Param<T>: @unchecked Sendable {
     }
 }
 
+// MARK: String type
 extension Param: ExpressibleByStringLiteral, ExpressibleByExtendedGraphemeClusterLiteral, ExpressibleByUnicodeScalarLiteral where T == String {
     public init(stringLiteral value: StringLiteralType) {
         self.value = value
@@ -30,18 +31,41 @@ extension Param: ExpressibleByStringLiteral, ExpressibleByExtendedGraphemeCluste
     }
 }
 
-extension Param: ExpressibleByIntegerLiteral where T == Int {
+
+// MARK: - Integer
+extension Param: ExpressibleByIntegerLiteral where T: FixedWidthInteger {
     public init(integerLiteral value: IntegerLiteralType) {
+        self.value = T(value)
+    }
+}
+
+// MARK: - Floating-point types
+extension Param: ExpressibleByFloatLiteral where T: _ExpressibleByBuiltinFloatLiteral {
+    public init(floatLiteral value: T) {
         self.value = value
     }
 }
 
-extension Param: ExpressibleByFloatLiteral where T == Double {
-    public init(floatLiteral value: FloatLiteralType) {
-        self.value = value
+@available(macOS 11.0, *)
+extension Param where T == Float16 {
+    public init(integerLiteral value: Int64) {
+        self.value = T(value)
     }
 }
 
+extension Param where T == Float32 {
+    public init(integerLiteral value: Int64) {
+        self.value = T(value)
+    }
+}
+
+extension Param where T == Float64 {
+    public init(integerLiteral value: Int64) {
+        self.value = T(value)
+    }
+}
+
+// MARK: Boolean type
 extension Param: ExpressibleByBooleanLiteral where T == Bool {
     public init(booleanLiteral value: BooleanLiteralType) {
         self.value = value
