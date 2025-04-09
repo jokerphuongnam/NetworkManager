@@ -1,5 +1,5 @@
 import Foundation
 
-public protocol NMInterceptor: Sendable {
+public protocol NetworkInterceptor: Sendable {
     func intercept(request: URLRequest, completion: (Result<URLRequest, Error>) -> Void)
 }

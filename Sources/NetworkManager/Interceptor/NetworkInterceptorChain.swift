@@ -1,9 +1,9 @@
 import Foundation
 
-public class NMInterceptorChain {
-    private var interceptors: [NMInterceptor]
+public class NetworkInterceptorChain {
+    private var interceptors: [NetworkInterceptor]
     
-    public init(interceptors: [NMInterceptor]) {
+    public init(interceptors: [NetworkInterceptor]) {
         self.interceptors = interceptors
     }
     

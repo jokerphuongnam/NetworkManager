@@ -8,7 +8,7 @@ public struct URLSessionClient: Client {
         self.urlSession = urlSession
     }
     
-    public func request(url: URL, method: String, headers: [String: String], cookie: HTTPCookie?, interceptors: [NMInterceptor], body: Data?, completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void) -> Request {
+    public func request(url: URL, method: String, headers: [String: String], cookie: HTTPCookie?, interceptors: [NetworkInterceptor], body: Data?, completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void) -> Request {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = method
         urlRequest.allHTTPHeaderFields = (urlSession.configuration.httpAdditionalHeaders as? [String: String] ?? [:]).merging(headers) { _, new in new }
@@ -16,7 +16,7 @@ public struct URLSessionClient: Client {
             urlRequest.applyCookie(cookie)
         }
         urlRequest.httpBody = body
-        return NMInterceptorChain(interceptors: interceptors).proceed(request: urlRequest) { result in
+        return NetworkInterceptorChain(interceptors: interceptors).proceed(request: urlRequest) { result in
             switch result {
             case .success(let urlRequest):
                 let task = urlSession.dataTask(
@@ -39,7 +39,7 @@ public struct URLSessionClient: Client {
         }
     }
     
-    public func request(url: URL, method: String, headers: [String : String], cookie: HTTPCookie?, interceptors: [any NMInterceptor], body: Data?, parts: [MultiPartBody], completion: @Sendable @escaping (Result<Response<Data>, any Error>) -> Void) -> any Request {
+    public func request(url: URL, method: String, headers: [String : String], cookie: HTTPCookie?, interceptors: [any NetworkInterceptor], body: Data?, parts: [MultiPartBody], completion: @Sendable @escaping (Result<Response<Data>, any Error>) -> Void) -> any Request {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = method
         urlRequest.allHTTPHeaderFields = (urlSession.configuration.httpAdditionalHeaders as? [String: String] ?? [:]).merging(headers) { _, new in new }
@@ -47,7 +47,7 @@ public struct URLSessionClient: Client {
             urlRequest.applyCookie(cookie)
         }
         urlRequest.httpBody = createMultipartData(body: body, parts: parts)
-        return NMInterceptorChain(interceptors: interceptors).proceed(request: urlRequest) { result in
+        return NetworkInterceptorChain(interceptors: interceptors).proceed(request: urlRequest) { result in
             switch result {
             case .success(let urlRequest):
                 let task = urlSession.dataTask(

@@ -7,12 +7,12 @@ struct RequestBodyDemo {
     let name: String
 }
 
-struct TestInterceptor: NMInterceptor {
+struct TestInterceptor: NetworkInterceptor {
     func intercept(request: URLRequest, completion: (Result<URLRequest, any Error>) -> Void) {
         completion(.success(request))
     }
 }
-struct AuthInterceptor: NMInterceptor {
+struct AuthInterceptor: NetworkInterceptor {
     func intercept(request: URLRequest, completion: (Result<URLRequest, any Error>) -> Void) {
         completion(.success(request))
     }
@@ -72,6 +72,7 @@ protocol ProtocolDemo {
     func testQueries(
         query: Query<Int8>,
         b: Query<Float64>?,
+        interceptor: NetworkInterceptor
     ) -> Future<GithubUsersResponse, Error>
     
     @GET("{login_user}")
@@ -103,14 +104,13 @@ func getProtocolDemo() -> ProtocolDemo {
             baseUrl: URL(string: "https://api.github.com")!,
             client: URLSessionClient.shared,
             converterFactory: JSONDecodableConverterFactory(),
-            headers: ["Content-Type": "application/json; charset=utf-8"],
-            interceptors: []
+            headers: ["Content-Type": "application/json; charset=utf-8"]
         )
     )
 }
 
 let demo = getProtocolDemo()
-demo.testQueries(query: 4, b: 2.0).sink { result in
+demo.testQueries(query: 4, b: 2.0, interceptor: TestInterceptor()).sink { result in
     switch result {
         case .failure(let error):
             print("Error occurred: \(error)")
