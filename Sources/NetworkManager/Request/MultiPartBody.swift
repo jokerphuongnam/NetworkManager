@@ -1,9 +1,9 @@
 import Foundation
 
 public struct MultiPartBody: Sendable {
-    let name: String
-    let mineType: String
-    let content: Data
+    public let name: String
+    public let mineType: String
+    public let content: Data
     
     public init(name: String, mineType: String, content: Data) {
         self.name = name
