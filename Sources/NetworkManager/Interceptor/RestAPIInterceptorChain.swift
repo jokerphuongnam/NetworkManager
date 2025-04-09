@@ -1,9 +1,9 @@
 import Foundation
 
-public class NetworkInterceptorChain {
-    private var interceptors: [NetworkInterceptor]
+public class RestAPIInterceptorChain: @unchecked Sendable {
+    private var interceptors: [RestAPIInterceptor]
     
-    public init(interceptors: [NetworkInterceptor]) {
+    public init(interceptors: [RestAPIInterceptor]) {
         self.interceptors = interceptors
     }
     
@@ -71,5 +71,19 @@ public class NetworkInterceptorChain {
                 completion(.failure(error))
             }
         }
+    }
+    
+    public func proceed(response result: Result<(Data, URLResponse), Error>, for request: URLRequest, completion: @Sendable @escaping (Result<(Data, URLResponse), Error>) -> Void) {
+        let _ = interceptors.reversed().reduce(result) { partialResult, interceptor in
+            var resultHolder: Result<(Data, URLResponse), Error> = partialResult
+            let semaphore = DispatchSemaphore(value: 0)
+            interceptor.intercept(response: resultHolder, for: request) { newResult in
+                resultHolder = newResult
+                semaphore.signal()
+            }
+            semaphore.wait()
+            return resultHolder
+        }
+        completion(result)
     }
 }

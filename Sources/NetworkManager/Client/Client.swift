@@ -6,7 +6,7 @@ public protocol Client: Sendable {
         method: String,
         headers: [String: String],
         cookie: HTTPCookie?,
-        interceptors: [NetworkInterceptor],
+        interceptors: [RestAPIInterceptor],
         body: Data?,
         completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void
     ) -> Request
@@ -16,7 +16,7 @@ public protocol Client: Sendable {
         method: String,
         headers: [String: String],
         cookie: HTTPCookie?,
-        interceptors: [NetworkInterceptor],
+        interceptors: [RestAPIInterceptor],
         body: Data?,
         parts: [MultiPartBody],
         completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void

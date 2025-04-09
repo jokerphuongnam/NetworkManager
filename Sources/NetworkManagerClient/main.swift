@@ -7,12 +7,12 @@ struct RequestBodyDemo {
     let name: String
 }
 
-struct TestInterceptor: NetworkInterceptor {
+struct TestInterceptor: RestAPIInterceptor {
     func intercept(request: URLRequest, completion: (Result<URLRequest, any Error>) -> Void) {
         completion(.success(request))
     }
 }
-struct AuthInterceptor: NetworkInterceptor {
+struct AuthInterceptor: RestAPIInterceptor {
     func intercept(request: URLRequest, completion: (Result<URLRequest, any Error>) -> Void) {
         completion(.success(request))
     }
@@ -72,7 +72,7 @@ protocol ProtocolDemo {
     func testQueries(
         query: Query<Int8>,
         b: Query<Float64>?,
-        interceptor: NetworkInterceptor
+        interceptor: RestAPIInterceptor
     ) -> Future<GithubUsersResponse, Error>
     
     @GET("{login_user}")

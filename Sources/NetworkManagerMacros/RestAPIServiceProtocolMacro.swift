@@ -55,12 +55,12 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
             \(typeKeyword.swiftString) \(className): \(typeKeyword == .actor ? "@preconcurrency " : "")\(protocolName) {
                 private let session: NetworkSession
                 private let headers: [String: String]
-                private let interceptors: [NetworkInterceptor]
+                private let interceptors: [RestAPIInterceptor]
                 \(properties.isEmpty ? "" : "\n    ")\(properties.joined(separator: "\n\n    "))\(properties.isEmpty ? "" : "\n")
                 init(
                     session: NetworkSession,
                     headers: [String: String] = [:],
-                    interceptors: [NetworkInterceptor] = []
+                    interceptors: [RestAPIInterceptor] = []
                 ) {
                     self.session = session
                     self.headers = headers
@@ -619,12 +619,12 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
     }
     
     private static func isInterceptor(_ typeString: String) -> Bool {
-        let pattern = #"(?:^|\.)(NetworkInterceptor)$"#
+        let pattern = #"(?:^|\.)(RestAPIInterceptor)$"#
         return typeString.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
     
     private static func isInterceptorsArray(_ typeString: String) -> Bool {
-        let pattern = #"\[(?:.*\.)?NetworkInterceptor\]"#
+        let pattern = #"\[(?:.*\.)?RestAPIInterceptor\]"#
         return typeString.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
     }
     
