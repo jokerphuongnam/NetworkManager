@@ -18,7 +18,7 @@ public protocol Client: Sendable {
         cookie: HTTPCookie?,
         interceptors: [RestAPIInterceptor],
         body: Data?,
-        parts: [MultiPartBody],
+        parts: [String: MultiPartBody],
         completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void
     ) -> Request
 }

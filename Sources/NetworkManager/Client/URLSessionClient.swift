@@ -52,7 +52,7 @@ public struct URLSessionClient: Client {
         }
     }
     
-    public func request(url: URL, method: String, headers: [String : String], cookie: HTTPCookie?, interceptors: [any RestAPIInterceptor], body: Data?, parts: [MultiPartBody], completion: @Sendable @escaping (Result<Response<Data>, any Error>) -> Void) -> any Request {
+    public func request(url: URL, method: String, headers: [String : String], cookie: HTTPCookie?, interceptors: [any RestAPIInterceptor], body: Data?, parts: [String: MultiPartBody], completion: @Sendable @escaping (Result<Response<Data>, any Error>) -> Void) -> any Request {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = method
         urlRequest.allHTTPHeaderFields = (urlSession.configuration.httpAdditionalHeaders as? [String: String] ?? [:]).merging(headers) { _, new in new }
@@ -60,20 +60,33 @@ public struct URLSessionClient: Client {
             urlRequest.applyCookie(cookie)
         }
         urlRequest.httpBody = createMultipartData(body: body, parts: parts)
-        return RestAPIInterceptorChain(interceptors: interceptors).proceed(request: urlRequest) { result in
+        let interceptorsChain = RestAPIInterceptorChain(interceptors: interceptors)
+        return interceptorsChain.proceed(request: urlRequest) { result in
             switch result {
             case .success(let urlRequest):
                 let task = urlSession.dataTask(
                     with: urlRequest
                 ) { data, response, error in
+                    let result: Result<(Data, URLResponse), Error>
                     if let error {
-                        completion(.failure(error))
-                        return
+                        result = .failure(error)
+                    } else if let data, let response {
+                        result = .success((data, response))
+                    } else {
+                        result = .failure(NSError(domain: "Unknown error", code: -1))
                     }
-                    if let httpResponse = response as? HTTPURLResponse, let data {
-                        let headers = httpResponse.allHeaderFields.compactMapValues { $0 as? String } as? [String: String] ?? [:]
-                        let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
-                        completion(.success(Response(data: data, statusCode: httpResponse.statusCode, headers: headers, cookies: cookies)))
+                    
+                    interceptorsChain.proceed(response: result, for: urlRequest) { result in
+                        switch result {
+                        case .success(let (data, response)):
+                            if let httpResponse = response as? HTTPURLResponse {
+                                let headers = httpResponse.allHeaderFields.compactMapValues { $0 as? String } as? [String: String] ?? [:]
+                                let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
+                                completion(.success(Response(data: data, statusCode: httpResponse.statusCode, headers: headers, cookies: cookies)))
+                            }
+                        case .failure(let error):
+                            completion(.failure(error))
+                        }
                     }
                 }
                 return URLSessionRequest(task: task)
@@ -83,7 +96,7 @@ public struct URLSessionClient: Client {
         }
     }
     
-    private func createMultipartData(body: Data?, parts: [MultiPartBody]) -> Data? {
+    private func createMultipartData(body: Data?, parts: [String: MultiPartBody]) -> Data? {
         guard !parts.isEmpty else {
             return body
         }
@@ -101,9 +114,9 @@ public struct URLSessionClient: Client {
         }
         
         // Append file parts
-        for part in parts {
+        for (name, part) in parts {
             multipartData.append("--\(boundary)\r\n".data(using: .utf8)!)
-            multipartData.append("Content-Disposition: form-data; name=\"files\"; filename=\"\(part.name)\"\r\n".data(using: .utf8)!)
+            multipartData.append("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(part.name)\"\r\n".data(using: .utf8)!)
             multipartData.append("Content-Type: \(part.mineType)\r\n\r\n".data(using: .utf8)!)
             multipartData.append(part.content)
             multipartData.append("\r\n".data(using: .utf8)!)

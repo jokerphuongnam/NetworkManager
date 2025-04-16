@@ -330,7 +330,7 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
         let partsStr = if parts.isEmpty {
             "nil"
         } else {
-            "[]\n" + parts.map { "parts?.append(\($0))" }.joined(separator: "\n")
+            "[:]\n" + parts.map { "parts?[\"\($0)\"] = \($0)" }.joined(separator: "\n")
         }
         
         let isAsync = funcDecl.signature.effectSpecifiers?.asyncSpecifier != nil
@@ -383,7 +383,7 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
                     \(appendHeaders.joined(separator: "\n        "))
                     \(interceptors.isEmpty ? "let" : "var") requestInterceptor = self.interceptors\(interceptorsArrayStr)
                     \(interceptors.map { "requestInterceptor.append(\($0))" }.joined(separator: "\n        "))
-                    \(parts.isEmpty ? "let": "var") parts: [MultiPartBody]? = \(partsStr)
+                    \(parts.isEmpty ? "let": "var") parts: [String: MultiPartBody]? = \(partsStr)
                     
                     \(isSeperateCall ? "let call: Call<\(callGeneric)> =" : "return") session.request(
                         url: \(pathWithOptionalQueries.isEmpty ? "\"\"" : (pathWithOptionalQueries.first != "\"" ? ("\"" + pathRemoveBreakLines) : pathRemoveBreakLines )),
