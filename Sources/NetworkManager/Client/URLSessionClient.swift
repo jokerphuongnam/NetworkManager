@@ -52,14 +52,16 @@ public struct URLSessionClient: Client {
         }
     }
     
-    public func request(url: URL, method: String, headers: [String : String], cookie: HTTPCookie?, interceptors: [any RestAPIInterceptor], body: Data?, parts: [String: MultiPartBody], completion: @Sendable @escaping (Result<Response<Data>, any Error>) -> Void) -> any Request {
+    public func request(url: URL, method: String, headers: [String : String], cookie: HTTPCookie?, interceptors: [any RestAPIInterceptor], body: Data?, parts: [String: MultiPartBody], completion: @Sendable @escaping (Result<Response<Data>, any Error>) -> Void) -> Request {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = method
         urlRequest.allHTTPHeaderFields = (urlSession.configuration.httpAdditionalHeaders as? [String: String] ?? [:]).merging(headers) { _, new in new }
         if let cookie {
             urlRequest.applyCookie(cookie)
         }
-        urlRequest.httpBody = createMultipartData(body: body, parts: parts)
+        let boundary = "Boundary-\(UUID().uuidString)"
+        urlRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        urlRequest.httpBody = createMultipartData(boundary: boundary, body: body, parts: parts)
         let interceptorsChain = RestAPIInterceptorChain(interceptors: interceptors)
         return interceptorsChain.proceed(request: urlRequest) { result in
             switch result {
@@ -96,13 +98,12 @@ public struct URLSessionClient: Client {
         }
     }
     
-    private func createMultipartData(body: Data?, parts: [String: MultiPartBody]) -> Data? {
+    private func createMultipartData(boundary: String, body: Data?, parts: [String: MultiPartBody]) -> Data? {
         guard !parts.isEmpty else {
             return body
         }
         
         var multipartData = Data()
-        let boundary = "Boundary-\(UUID().uuidString)"
         
         // Append JSON body if present
         if let body = body {
@@ -117,7 +118,7 @@ public struct URLSessionClient: Client {
         for (name, part) in parts {
             multipartData.append("--\(boundary)\r\n".data(using: .utf8)!)
             multipartData.append("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(part.name)\"\r\n".data(using: .utf8)!)
-            multipartData.append("Content-Type: \(part.mineType)\r\n\r\n".data(using: .utf8)!)
+            multipartData.append("Content-Type: \(part.mimeType)\r\n\r\n".data(using: .utf8)!)
             multipartData.append(part.content)
             multipartData.append("\r\n".data(using: .utf8)!)
         }
