@@ -65,8 +65,8 @@ struct Paging<T>: Sendable {}
 
 @RestAPIService(.actor, callAdapter: .combine)
 protocol ProtocolDemo {
-//    @GET
-//    var users: Future<Paging<GithubUsersResponse>, Error> { get }
+    @GET
+    var users: Future<Paging<GithubUsersResponse>, Error> { get }
     
     @GET
     func testQueries(
@@ -98,25 +98,100 @@ protocol ProtocolDemo {
     ) -> Future<Paging<GithubUsersResponse>, Error>
 }
 
+@RestAPIService()
+protocol HttpBin {
+    @GET("cookies/set")
+    func setCookie(cookie: HTTPCookie, sessionId: Query<String>) async throws -> Response<Void>
+}
+
+@available(iOS 14.0, *)
 func getProtocolDemo() -> ProtocolDemo {
     ProtocolDemoImpl(
         session: NetworkSession(
             baseUrl: URL(string: "https://api.github.com")!,
             client: URLSessionClient.shared,
             converterFactory: JSONDecodableConverterFactory(),
-            headers: ["Content-Type": "application/json; charset=utf-8"]
+            headers: ["Content-Type": "application/json; charset=utf-8"],
+            interceptors: [LoggingInterceptor()]
         )
     )
 }
 
-let demo = getProtocolDemo()
-demo.testQueries(query: 4, b: 2.0, interceptor: TestInterceptor()).sink { result in
-    switch result {
-        case .failure(let error):
-            print("Error occurred: \(error)")
-        case .finished:
-            print("Response")
-        }
-} receiveValue: { res in
+@available(iOS 14.0, *)
+func getHttpBin() -> HttpBin {
+    HttpBinImpl(
+        session: NetworkSession(
+            baseUrl: URL(string: "https://httpbin.org")!,
+            client: URLSessionClient.shared,
+            converterFactory: JSONDecodableConverterFactory(),
+            headers: ["Content-Type": "application/json; charset=utf-8"],
+            interceptors: [LoggingInterceptor(level: .all)]
+        )
+    )
+}
+
+//let demo = getProtocolDemo()
+//demo.testQueries(query: 4, b: 2.0, interceptor: TestInterceptor()).sink { result in
+//    switch result {
+//        case .failure(let error):
+//            print("Error occurred: \(error)")
+//        case .finished:
+//            print("Response")
+//        }
+//} receiveValue: { res in
+//
+//}
+if #available(iOS 14.0, *) {
+    let semaphore = DispatchSemaphore(value: 0)
     
+    // MARK: - Post
+    struct Post: Codable {
+        let userID, id: Int
+        let title, body: String
+        
+        enum CodingKeys: String, CodingKey {
+            case userID = "userId"
+            case id, title, body
+        }
+    }
+    
+    typealias Posts = [Post]
+    
+//    var cancellables = Set<AnyCancellable>()
+    
+//    let demo = getProtocolDemo()
+//    demo.users
+//        .subscribe(on: DispatchQueue.global(qos: .background))
+//        .receive(on: RunLoop.main, options: nil)
+//        .sink { _ in
+//            semaphore.signal()
+//        } receiveValue: { _ in
+//
+//        }
+//        .store(in: &cancellables)
+    Task.detached(priority: .background) {
+        let httpBin: HttpBin = getHttpBin()
+        
+        let cookieProperties: [HTTPCookiePropertyKey: Any] = [
+            .domain: "httpbin.org",
+            .path: "/",
+            .name: "sessionId",
+            .value: "123456",
+            .secure: true,
+            .expires: Date().addingTimeInterval(600),
+            .version: 5
+        ]
+
+        guard let cookie = HTTPCookie(properties: cookieProperties) else {
+            print("❌ Failed to create cookie")
+            semaphore.signal()
+            return
+        }
+        
+        let response = try await httpBin.setCookie(cookie: cookie, sessionId: "123456")
+        print("====== ", response)
+    }
+    semaphore.wait()
+} else {
+    // Fallback on earlier versions
 }
