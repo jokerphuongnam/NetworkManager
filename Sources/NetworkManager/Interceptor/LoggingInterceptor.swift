@@ -10,6 +10,7 @@ public final class LoggingInterceptor: RestAPIInterceptor, @unchecked Sendable {
         case cookies
         case body
         case all
+        case basic
     }
     
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "LoggingInterceptor", category: "Networking")
@@ -30,7 +31,7 @@ public final class LoggingInterceptor: RestAPIInterceptor, @unchecked Sendable {
         let method = request.httpMethod ?? "UNKNOWN"
         let url = request.url?.absoluteString ?? "nil"
         
-        var log = "\n---> \(method) \(url)\n"
+        var log = "📤\n---> \(method) \(url)\n"
         
         if (level == .headers || level == .all), let headers = request.allHTTPHeaderFields, !headers.isEmpty {
             log += "Headers:\n"
@@ -62,7 +63,7 @@ public final class LoggingInterceptor: RestAPIInterceptor, @unchecked Sendable {
         switch result {
         case .success((let data, let response)):
             let elapsed = String(format: "%.2fms", Date().timeIntervalSince(startTime) * 1000)
-            var log = "\n<--- \(method) \(url) (\(elapsed))\n"
+            var log = "📤\n<--- \(method) \(url) (\(elapsed))\n"
 
             if let httpResponse = response as? HTTPURLResponse {
                 if let server = httpResponse.allHeaderFields["Server"] as? String {

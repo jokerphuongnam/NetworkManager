@@ -125,7 +125,7 @@ func getHttpBin() -> HttpBin {
             client: URLSessionClient.shared,
             converterFactory: JSONDecodableConverterFactory(),
             headers: ["Content-Type": "application/json; charset=utf-8"],
-            interceptors: [LoggingInterceptor(level: .all)]
+            interceptors: [LoggingInterceptor(level: .basic)]
         )
     )
 }
@@ -190,6 +190,11 @@ if #available(iOS 14.0, *) {
         
         let response = try await httpBin.setCookie(cookie: cookie, sessionId: "123456")
         print("====== ", response)
+        if let cookies = HTTPCookieStorage.shared.cookies(for: URL(string: "https://httpbin.org")!) {
+            for cookie in cookies {
+                print("📦 Stored cookie: \(cookie.name)=\(cookie.value)")
+            }
+        }
     }
     semaphore.wait()
 } else {
