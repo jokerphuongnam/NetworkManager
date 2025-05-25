@@ -312,8 +312,8 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
             path = attributes.memberPath
         }
         let pathAfterReplacePath = try replacePathPlaceholders(of: node, in: context, path:  path.replacingOccurrences(of: "//", with: "/"), paths: paths)
-        let pathWithQueries = if queries.isEmpty { pathAfterReplacePath } else { appendQueriesToPath(path: String(pathAfterReplacePath.dropLast()), queries: queries) + "\"" }
-        let pathWithOptionalQueries = if optionalQueries.isEmpty { pathWithQueries } else { appendOptionalQueriesToPath(path: pathWithQueries, optionalQueries: optionalQueries) }
+        let pathWithQueries = if queries.isEmpty { pathAfterReplacePath } else { appendQueriesToPath(path: pathAfterReplacePath.removingTrailingQuote(), queries: queries) + "\"" }
+        let pathWithOptionalQueries = if optionalQueries.isEmpty { pathWithQueries } else { appendOptionalQueriesToPath(path: pathWithQueries.removingTrailingQuote(), optionalQueries: optionalQueries) }
         
         var appendHeaders = [String]()
         for header in headers {
@@ -377,6 +377,8 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
         )
         let pathRemoveBreakLines = pathWithOptionalQueries.replacingOccurrences(of: "\n", with: "")
         let headersPattern = "\(appendHeaders.isEmpty ? "let" : "var") headers = \(attributes.headers).merging(self.headers) { new, _ in new }"
+        let finalPath = pathWithOptionalQueries.isEmpty ? "\"\"" : (pathWithOptionalQueries.first != "\"" ? ("\"" + pathRemoveBreakLines) : pathRemoveBreakLines ).replacingOccurrences(of: "\n", with: "")
+            .replacingOccurrences(of: "\r", with: "")
         return """
             func \(functionName)(\(params))\(asyncStr)\(throwsStr)\(returnTypeString) {
                     \(headersPattern)
@@ -386,14 +388,14 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
                     \(parts.isEmpty ? "let": "var") parts: [String: MultiPartBody]? = \(partsStr)
                     
                     \(isSeperateCall ? "let call: Call<\(callGeneric)> =" : "return") session.request(
-                        url: \(pathWithOptionalQueries.isEmpty ? "\"\"" : (pathWithOptionalQueries.first != "\"" ? ("\"" + pathRemoveBreakLines) : pathRemoveBreakLines )),
+                        url: \(finalPath.ensuringTrailingQuote()),
                         method: \(attributes.method),
                         headers: headers,
                         isDefaultCookie: \(boolToString(isAllowCookie)),
                         cookie: \(cookieStr),
                         interceptors: requestInterceptor,
                         parts: parts\(body == nil ? "": ",\n            body: body")
-                    )\(isSeperateCall ? transferHandler : "")
+                    )\(isSeperateCall ? ("\n" + transferHandler) : "")
             }
             """
     }
@@ -502,7 +504,8 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
             result += "?\(queryString)"
         }
         
-        return result
+        return result.replacingOccurrences(of: "\n", with: "")
+            .replacingOccurrences(of: "\r", with: "")
     }
     
     private static func appendOptionalQueriesToPath(path: String, optionalQueries: [String]) -> String {
@@ -755,5 +758,15 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
                 {error}
             }
         """) ?? ""
+    }
+}
+
+private extension String {
+    func removingTrailingQuote() -> String {
+        self.hasSuffix("\"") ? String(self.dropLast()) : self
+    }
+    
+    func ensuringTrailingQuote() -> String {
+        self.hasSuffix("\"") ? self : self + "\""
     }
 }
