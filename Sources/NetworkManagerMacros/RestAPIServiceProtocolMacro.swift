@@ -759,6 +759,20 @@ public struct RestAPIServiceProtocolMacro: PeerMacro {
             }
         """) ?? ""
     }
+    
+//    private static func verifyQuotationMarks(path: String) -> String {
+//        if path.isEmpty {
+//            return "\"\""
+//        }
+//        var path = path
+//        if path.hasPrefix("\"") {
+//            path = "\"" + path
+//        }
+//        if path.first != path.last, path.hasSuffix("\"") {
+//            path = path + "\""
+//        }
+//        return path
+//    }
 }
 
 private extension String {

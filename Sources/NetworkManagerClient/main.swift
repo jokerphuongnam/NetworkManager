@@ -63,7 +63,7 @@ struct TestRequest: Codable {
 
 struct Paging<T>: Sendable {}
 
-@RestAPIService(.actor, callAdapter: .combine)
+@RestAPIService(.actor, path: "users", callAdapter: .combine)
 protocol ProtocolDemo {
     @GET
     var users: Future<Paging<GithubUsersResponse>, Error> { get }
@@ -75,9 +75,9 @@ protocol ProtocolDemo {
         interceptor: RestAPIInterceptor
     ) -> Future<GithubUsersResponse, Error>
     
-    @GET("{login_user}")
+    @GET
     func userDetail(
-        loginUser login_user: Path<String>,
+        //        loginUser login_user: Path<String>,
         body: TestRequest,
         firstFile: MultiPartBody,
         secondFile: MultiPartBody
