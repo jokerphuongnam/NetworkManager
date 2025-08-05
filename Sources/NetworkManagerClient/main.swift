@@ -64,7 +64,7 @@ struct TestRequest: Codable {
 struct Paging<T>: Sendable {}
 
 @RestAPIService(.actor, path: "users", callAdapter: .combine)
-protocol ProtocolDemo {
+protocol ProtocolDemo: Sendable {
     @GET
     var users: Future<Paging<GithubUsersResponse>, Error> { get }
     

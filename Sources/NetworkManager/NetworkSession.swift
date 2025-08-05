@@ -1,5 +1,4 @@
 import Foundation
-import SharedModels
 
 public struct NetworkSession: Sendable {
     private let baseUrl: URL
@@ -25,7 +24,16 @@ public struct NetworkSession: Sendable {
         self.allowCookie = allowCookie
     }
     
-    public func request<RequestBody, ResponseBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [RestAPIInterceptor], parts: [String: MultiPartBody]? = nil, body: RequestBody) -> Call<Response<ResponseBody>> {
+    public func request<RequestBody, ResponseBody>(
+        url: String,
+        method: String,
+        headers: [String: String],
+        isDefaultCookie: Bool?,
+        cookie: HTTPCookie?,
+        interceptors: [RestAPIInterceptor],
+        parts: [String: MultiPartBody]? = nil,
+        body: RequestBody
+    ) -> Call<Response<ResponseBody>> {
         let requestUrl = if url.isEmpty { baseUrl } else { URL(string: url, relativeTo: baseUrl)! }
         let requestCookie: HTTPCookie?
         if let cookie {
@@ -95,7 +103,15 @@ public struct NetworkSession: Sendable {
         return call
     }
     
-    public func request<ResponseBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [RestAPIInterceptor], parts: [String: MultiPartBody]? = nil) -> Call<Response<ResponseBody>> {
+    public func request<ResponseBody>(
+        url: String,
+        method: String,
+        headers: [String: String],
+        isDefaultCookie: Bool?,
+        cookie: HTTPCookie?,
+        interceptors: [RestAPIInterceptor],
+        parts: [String: MultiPartBody]? = nil
+    ) -> Call<Response<ResponseBody>> {
         let requestUrl = if url.isEmpty { baseUrl } else { URL(string: url, relativeTo: baseUrl)! }
         let requestCookie: HTTPCookie?
         if let cookie {
@@ -161,7 +177,16 @@ public struct NetworkSession: Sendable {
         return call
     }
     
-    public func request<RequestBody, ResponseBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [RestAPIInterceptor], parts: [String: MultiPartBody]? = nil, body: RequestBody) -> Call<ResponseBody> {
+    public func request<RequestBody, ResponseBody>(
+        url: String,
+        method: String,
+        headers: [String: String],
+        isDefaultCookie: Bool?,
+        cookie: HTTPCookie?,
+        interceptors: [RestAPIInterceptor],
+        parts: [String: MultiPartBody]? = nil,
+        body: RequestBody
+    ) -> Call<ResponseBody> {
         let requestUrl = if url.isEmpty { baseUrl } else { URL(string: url, relativeTo: baseUrl)! }
         let requestCookie: HTTPCookie?
         if let cookie {
@@ -227,7 +252,15 @@ public struct NetworkSession: Sendable {
         return call
     }
     
-    public func request<ResponseBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [RestAPIInterceptor], parts: [String: MultiPartBody]? = nil) -> Call<ResponseBody> {
+    public func request<ResponseBody>(
+        url: String,
+        method: String,
+        headers: [String: String],
+        isDefaultCookie: Bool?,
+        cookie: HTTPCookie?,
+        interceptors: [RestAPIInterceptor],
+        parts: [String: MultiPartBody]? = nil
+    ) -> Call<ResponseBody> {
         let requestUrl = if url.isEmpty { baseUrl } else { URL(string: url, relativeTo: baseUrl)! }
         let requestCookie: HTTPCookie?
         if let cookie {
@@ -289,7 +322,16 @@ public struct NetworkSession: Sendable {
         return call
     }
     
-    public func request<RequestBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [RestAPIInterceptor], parts: [String: MultiPartBody]? = nil, body: RequestBody) -> Call<Response<Void>> {
+    public func request<RequestBody>(
+        url: String,
+        method: String,
+        headers: [String: String],
+        isDefaultCookie: Bool?,
+        cookie: HTTPCookie?,
+        interceptors: [RestAPIInterceptor],
+        parts: [String: MultiPartBody]? = nil,
+        body: RequestBody
+    ) -> Call<Response<Void>> {
         let requestUrl = if url.isEmpty { baseUrl } else { URL(string: url, relativeTo: baseUrl)! }
         let requestCookie: HTTPCookie?
         if let cookie {
@@ -351,7 +393,15 @@ public struct NetworkSession: Sendable {
         return call
     }
     
-    public func request(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [RestAPIInterceptor], parts: [String: MultiPartBody]? = nil) -> Call<Response<Void>> {
+    public func request(
+        url: String,
+        method: String,
+        headers: [String: String],
+        isDefaultCookie: Bool?,
+        cookie: HTTPCookie?,
+        interceptors: [RestAPIInterceptor],
+        parts: [String: MultiPartBody]? = nil
+    ) -> Call<Response<Void>> {
         let requestUrl = if url.isEmpty { baseUrl } else { URL(string: url, relativeTo: baseUrl)! }
         let requestCookie: HTTPCookie?
         if let cookie {
@@ -409,7 +459,16 @@ public struct NetworkSession: Sendable {
         return call
     }
     
-    public func request<RequestBody>(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [RestAPIInterceptor], parts: [String: MultiPartBody]? = nil, body: RequestBody) -> Call<Void> {
+    public func request<RequestBody>(
+        url: String,
+        method: String,
+        headers: [String: String],
+        isDefaultCookie: Bool?,
+        cookie: HTTPCookie?,
+        interceptors: [RestAPIInterceptor],
+        parts: [String: MultiPartBody]? = nil,
+        body: RequestBody
+    ) -> Call<Void> {
         let requestUrl = if url.isEmpty { baseUrl } else { URL(string: url, relativeTo: baseUrl)! }
         let requestCookie: HTTPCookie?
         if let cookie {
@@ -463,7 +522,15 @@ public struct NetworkSession: Sendable {
         return call
     }
     
-    public func request(url: String, method: String, headers: [String: String], isDefaultCookie: Bool?, cookie: HTTPCookie?, interceptors: [RestAPIInterceptor], parts: [String: MultiPartBody]? = nil) -> Call<Void> {
+    public func request(
+        url: String,
+        method: String,
+        headers: [String: String],
+        isDefaultCookie: Bool?,
+        cookie: HTTPCookie?,
+        interceptors: [RestAPIInterceptor],
+        parts: [String: MultiPartBody]? = nil
+    ) -> Call<Void> {
         let requestUrl = if url.isEmpty { baseUrl } else { URL(string: url, relativeTo: baseUrl)! }
         let requestCookie: HTTPCookie?
         if let cookie {

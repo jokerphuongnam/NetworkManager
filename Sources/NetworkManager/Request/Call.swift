@@ -1,13 +1,19 @@
 import Foundation
 
 public final class Call<Response>: @unchecked Sendable {
-    var request: Request? = nil
+    private var _request = SafeBox<Request?>(nil)
+    var request: Request? {
+        get {
+            _request.value
+        }
+        set {
+            _request.value = newValue
+        }
+    }
     private(set) var onResponse: ((Response) -> Void)? = nil
     private(set) var onFailure: ((Error) -> Void)? = nil
     
-    public init() {
-        
-    }
+    public init() { }
     
     public func cancel() {
         self.request?.cancel()
