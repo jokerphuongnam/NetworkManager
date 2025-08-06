@@ -82,23 +82,22 @@ public final class LoggingInterceptor: RestAPIInterceptor, Sendable {
                             log += "- \($0): \($1)\n"
                         }
                     }
+                    
+                    if (level == .cookies || level == .all), let cookies = HTTPCookieStorage.shared.cookies(for: request.url!), !cookies.isEmpty {
+                        log += "Cookies:\n"
+                        cookies.forEach { log += "- \($0.name)=\($0.value)\n" }
+                    }
+                    
+                    if (level == .body || level == .all), let bodyString = String(data: data, encoding: .utf8), !bodyString.isEmpty {
+                        log += "Body:\n\(bodyString)\n"
+                    }
+                } else {
+                    log += "Response not HTTPURLResponse\n"
                 }
-
-                if (level == .cookies || level == .all), let cookies = HTTPCookieStorage.shared.cookies(for: request.url!), !cookies.isEmpty {
-                    log += "Cookies:\n"
-                    cookies.forEach { log += "- \($0.name)=\($0.value)\n" }
-                }
-
-                if (level == .body || level == .all), let bodyString = String(data: data, encoding: .utf8), !bodyString.isEmpty {
-                    log += "Body:\n\(bodyString)\n"
-                }
-            } else {
-                log += "Response not HTTPURLResponse\n"
+                
+                log += "<--- END HTTP"
+                LoggingInterceptor.logger.debug("\(log, privacy: .public)")
             }
-
-            log += "<--- END HTTP"
-            LoggingInterceptor.logger.debug("\(log, privacy: .public)")
-            
         case .failure(let error):
             LoggingInterceptor.logger.error("❌ [Error] \(error.localizedDescription, privacy: .public) from \(url, privacy: .public)")
         }

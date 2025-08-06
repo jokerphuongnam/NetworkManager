@@ -72,73 +72,79 @@ public struct URLSessionClient: Client, Sendable {
     }
     
     private func createRequest(
-            for url: URL,
-            interceptorsChain: RestAPIInterceptorChain,
-            result: Result<URLRequest, Error>,
-            completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void,
-            maxRetries: Int,
-            retryCount: Int
-        ) -> Request {
-            switch result {
-            case .success(let urlRequest):
-                let task = urlSession.dataTask(with: urlRequest) { data, response, error in
-                    let result: Result<(Data, URLResponse), Error>
-                    if let error {
-                        result = .failure(error)
-                    } else if let data, let response {
-                        result = .success((data, response))
-                    } else {
-                        result = .failure(NSError(domain: "Unknown error", code: -1))
-                    }
-                    
-                    interceptorsChain.proceedWithRetry(
-                        response: result,
-                        for: urlRequest,
-                        maxRetries: maxRetries,
-                        retryCount: retryCount
-                    ) { [completion] processedResult in
-                        switch processedResult {
-                        case .failure(let retryError as RetryTriggerError):
-                            if retryError.retryImmediately {
+        for url: URL,
+        interceptorsChain: RestAPIInterceptorChain,
+        result: Result<URLRequest, Error>,
+        completion: @Sendable @escaping (Result<Response<Data>, Error>) -> Void,
+        maxRetries: Int,
+        retryCount: Int
+    ) -> Request {
+        switch result {
+        case .success(let urlRequest):
+            let task = urlSession.dataTask(with: urlRequest) { data, response, error in
+                let result: Result<(Data, URLResponse), Error>
+                if let error {
+                    result = .failure(error)
+                } else if let data, let response {
+                    result = .success((data, response))
+                } else {
+                    result = .failure(NSError(domain: "Unknown error", code: -1))
+                }
+                
+                interceptorsChain.proceedWithRetry(
+                    response: result,
+                    for: urlRequest,
+                    maxRetries: maxRetries,
+                    retryCount: retryCount
+                ) { [completion] processedResult in
+                    switch processedResult {
+                    case .failure(let retryError as RetryTriggerError):
+                        if retryError.retryImmediately {
+                            interceptorsChain.proceed(request: urlRequest) { result in
                                 self.createRequest(
                                     for: url,
                                     interceptorsChain: interceptorsChain,
-                                    result: .success(urlRequest),
+                                    result: result,
                                     completion: completion,
                                     maxRetries: maxRetries,
                                     retryCount: retryError.count
-                                ).resume()
-                            } else {
-                                DispatchQueue.global().asyncAfter(deadline: .now() + retryError.delay) {
+                                )
+                            }.resume()
+                        } else {
+                            DispatchQueue.global().asyncAfter(deadline: .now() + retryError.delay) {
+                                interceptorsChain.proceed(request: urlRequest) { result in
                                     self.createRequest(
                                         for: url,
                                         interceptorsChain: interceptorsChain,
-                                        result: .success(urlRequest),
+                                        result: result,
                                         completion: completion,
                                         maxRetries: maxRetries,
                                         retryCount: retryError.count
-                                    ).resume()
-                                }
+                                    )
+                                }.resume()
                             }
-                            
-                        case .failure(let error):
-                            completion(.failure(error))
-                        case .success(let (data, response)):
-                            if let httpResponse = response as? HTTPURLResponse {
-                                let headers = httpResponse.allHeaderFields.compactMapValues { $0 as? String } as? [String: String] ?? [:]
-                                let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
-                                completion(.success(Response(data: data, statusCode: httpResponse.statusCode, headers: headers, cookies: cookies)))
-                            }
+                        }
+                        
+                    case .failure(let error):
+                        completion(.failure(error))
+                    case .success(let (data, response)):
+                        if let httpResponse = response as? HTTPURLResponse {
+                            let headers = httpResponse.allHeaderFields.compactMapValues { $0 as? String } as? [String: String] ?? [:]
+                            let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
+                            completion(.success(Response(data: data, statusCode: httpResponse.statusCode, headers: headers, cookies: cookies)))
                         }
                     }
                 }
-                return URLSessionRequest(task: task)
-                
-            case .failure(let error):
-                completion(.failure(error))
-                return URLSessionRequest(task: nil)
             }
+            return URLSessionRequest(task: task)
+        case .failure(let error):
+            Task { [completion] in
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                completion(.failure(error))
+            }
+            return URLSessionRequest(task: nil)
         }
+    }
     
     private func createMultipartData(boundary: String, body: Data?, parts: [String: MultiPartBody]) -> Data? {
         guard !parts.isEmpty else {

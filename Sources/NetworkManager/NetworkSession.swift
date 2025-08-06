@@ -98,7 +98,12 @@ public struct NetworkSession: Sendable {
                 }
             }
         } catch {
-            call.onFailure?(error)
+            Task { [weak call] in
+                guard let call else { return }
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                
+                call.onFailure?(error)
+            }
         }
         return call
     }
@@ -247,7 +252,12 @@ public struct NetworkSession: Sendable {
                 }
             }
         } catch {
-            call.onFailure?(error)
+            Task { [weak call] in
+                guard let call else { return }
+                try? await Task.sleep(nanoseconds: 300_000_000)
+                
+                call.onFailure?(error)
+            }
         }
         return call
     }
