@@ -1,11 +1,11 @@
-public enum ErrorStatus: Sendable {
+public enum ErrorStatus {
     case notDecodable
     case notEncodable
     case releasedSelf
     case releasedCall
 }
 
-public struct NMError: Error {
+public struct NMError: Error, @unchecked Sendable {
     let status: ErrorStatus
     let message: String
     

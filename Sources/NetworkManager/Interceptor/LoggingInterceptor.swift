@@ -4,8 +4,8 @@ import os
 import UIKit
 
 @available(iOS 14.0, *)
-public final class LoggingInterceptor: RestAPIInterceptor, @unchecked Sendable {
-    public enum Level {
+public final class LoggingInterceptor: RestAPIInterceptor, Sendable {
+    public enum Level : Sendable {
         case headers
         case cookies
         case body
@@ -14,20 +14,20 @@ public final class LoggingInterceptor: RestAPIInterceptor, @unchecked Sendable {
     }
     
     private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "LoggingInterceptor", category: "Networking")
-    private var startTime: Date!
+    private let startTime = SafeBox<Date?>(nil)
     private let level: Level?
     
     public init(level: Level? = nil) {
         self.level = level
     }
     
-    public func intercept(request: URLRequest, completion: @escaping (Result<URLRequest, Error>) -> Void) {
+    public func intercept(request: URLRequest, completion: @Sendable @escaping (Result<URLRequest, Error>) -> Void) {
         if level == nil {
             completion(.success(request))
             return
         }
         
-        startTime = Date()
+        startTime.value = Date()
         let method = request.httpMethod ?? "UNKNOWN"
         let url = request.url?.absoluteString ?? "nil"
         
@@ -52,7 +52,7 @@ public final class LoggingInterceptor: RestAPIInterceptor, @unchecked Sendable {
         completion(.success(request))
     }
     
-    public func intercept(response result: Result<(Data, URLResponse), Error>, for request: URLRequest, completion: @escaping (Result<(Data, URLResponse), Error>) -> Void) {
+    public func intercept(response result: Result<(Data, URLResponse), Error>, for request: URLRequest, completion: @Sendable @escaping (Result<(Data, URLResponse), Error>) -> Void) {
         if level == nil {
             completion(result)
             return
@@ -62,7 +62,7 @@ public final class LoggingInterceptor: RestAPIInterceptor, @unchecked Sendable {
         
         switch result {
         case .success((let data, let response)):
-            let elapsed = String(format: "%.2fms", Date().timeIntervalSince(startTime) * 1000)
+            let elapsed = String(format: "%.2fms", Date().timeIntervalSince(startTime.value!) * 1000)
             var log = "📤\n<--- \(method) \(url) (\(elapsed))\n"
 
             if let httpResponse = response as? HTTPURLResponse {
@@ -82,23 +82,22 @@ public final class LoggingInterceptor: RestAPIInterceptor, @unchecked Sendable {
                             log += "- \($0): \($1)\n"
                         }
                     }
+                    
+                    if (level == .cookies || level == .all), let cookies = HTTPCookieStorage.shared.cookies(for: request.url!), !cookies.isEmpty {
+                        log += "Cookies:\n"
+                        cookies.forEach { log += "- \($0.name)=\($0.value)\n" }
+                    }
+                    
+                    if (level == .body || level == .all), let bodyString = String(data: data, encoding: .utf8), !bodyString.isEmpty {
+                        log += "Body:\n\(bodyString)\n"
+                    }
+                } else {
+                    log += "Response not HTTPURLResponse\n"
                 }
-
-                if (level == .cookies || level == .all), let cookies = HTTPCookieStorage.shared.cookies(for: request.url!), !cookies.isEmpty {
-                    log += "Cookies:\n"
-                    cookies.forEach { log += "- \($0.name)=\($0.value)\n" }
-                }
-
-                if (level == .body || level == .all), let bodyString = String(data: data, encoding: .utf8), !bodyString.isEmpty {
-                    log += "Body:\n\(bodyString)\n"
-                }
-            } else {
-                log += "Response not HTTPURLResponse\n"
+                
+                log += "<--- END HTTP"
+                LoggingInterceptor.logger.debug("\(log, privacy: .public)")
             }
-
-            log += "<--- END HTTP"
-            LoggingInterceptor.logger.debug("\(log, privacy: .public)")
-            
         case .failure(let error):
             LoggingInterceptor.logger.error("❌ [Error] \(error.localizedDescription, privacy: .public) from \(url, privacy: .public)")
         }
